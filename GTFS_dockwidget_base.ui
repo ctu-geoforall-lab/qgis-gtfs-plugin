@@ -15,46 +15,31 @@
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="1" column="0">
+    <item row="0" column="0">
      <widget class="QLabel" name="label_3">
       <property name="text">
-       <string>TextLabel</string>
+       <string>Vybrat soubor:</string>
       </property>
      </widget>
     </item>
-    <item row="2" column="2">
-     <widget class="QPushButton" name="pushButton">
+    <item row="1" column="2">
+     <widget class="QPushButton" name="submit">
       <property name="text">
-       <string>PushButton</string>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="0">
-     <widget class="QLabel" name="label_2">
-      <property name="text">
-       <string>TextLabel</string>
+       <string>Načíst</string>
       </property>
      </widget>
     </item>
     <item row="0" column="2">
-     <widget class="QgsMapLayerComboBox" name="mMapLayerComboBox"/>
-    </item>
-    <item row="1" column="2">
-     <widget class="QgsExternalResourceWidget" name="mQgsExternalResourceWidget"/>
+     <widget class="QgsFileWidget" name="input_dir"/>
     </item>
    </layout>
   </widget>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QgsExternalResourceWidget</class>
+   <class>QgsFileWidget</class>
    <extends>QWidget</extends>
-   <header>qgsexternalresourcewidget.h</header>
-  </customwidget>
-  <customwidget>
-   <class>QgsMapLayerComboBox</class>
-   <extends>QComboBox</extends>
-   <header>qgsmaplayercombobox.h</header>
+   <header>qgsfilewidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

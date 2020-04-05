@@ -31,6 +31,10 @@ from .resources import *
 from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
+from PyQt5.QtGui import QColor, QPixmap
+from qgis.utils import iface
+from qgis.core import *
+from qgis.gui import *
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -222,6 +226,9 @@ class GTFS:
             if self.dockwidget == None:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
+ #               self.dockwidget.soubory.setFilters(QgsMapLayerProxyModel.VectorLayer)
+                self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetDirectory)
+                self.dockwidget.submit.clicked.connect(self.load_file)
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
@@ -230,6 +237,25 @@ class GTFS:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+    def load_file(self):
+        
+            #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
+            path = self.dockwidget.input_dir.filePath()
 
+            files = []
+            # r=root, d=directories, f = files
+            for r, d, f in os.walk(path):
+                 for file in f:
+                     if '.txt' in file:
+                         files.append(os.path.join(r, file))
+            
+            for f in files:
+                #f = self.dockwidget.input_dir.filePath()
+            
+                uri = 'file:///{}?delimiter=,'.format(f)
+                print(uri)
 
-# funguje to ? 
+                name = os.path.splitext(os.path.basename(f))[0]
+                layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
+                print(layer.isValid())
+                QgsProject.instance().addMapLayer(layer)
