@@ -36,6 +36,10 @@ from qgis.utils import iface
 from qgis.core import *
 from qgis.gui import *
 
+from zipfile import ZipFile
+
+import os.path
+
 class GTFS:
     """QGIS Plugin Implementation."""
 
@@ -227,7 +231,7 @@ class GTFS:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
  #               self.dockwidget.soubory.setFilters(QgsMapLayerProxyModel.VectorLayer)
-                self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetDirectory)
+                self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
                 self.dockwidget.submit.clicked.connect(self.load_file)
 
             # connect to provide cleanup on closing of dockwidget
@@ -241,10 +245,23 @@ class GTFS:
         
             #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
             path = self.dockwidget.input_dir.filePath()
+            nazev = "pokus"
+  
+            path1 = os.path.join(os.path.dirname(path), nazev) 
 
+            os.mkdir(path1) 
+
+            with ZipFile(path, 'r') as zip: 
+                # printing all the contents of the zip file 
+                zip.printdir() 
+                zip.extractall(path1) 
+
+
+            print(path1)
+            print(path)
             files = []
             # r=root, d=directories, f = files
-            for r, d, f in os.walk(path):
+            for r, d, f in os.walk(path1):
                  for file in f:
                      if '.txt' in file:
                          files.append(os.path.join(r, file))
@@ -259,3 +276,13 @@ class GTFS:
                 layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
                 print(layer.isValid())
                 QgsProject.instance().addMapLayer(layer)
+                if layer.name()== 'stops':
+                    uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
+                    name = os.path.splitext(os.path.basename(f))[0]
+                    layer = QgsVectorLayer(uri, name, 'delimitedtext')
+                    QgsProject.instance().addMapLayer(layer)
+                if layer.name()== 'shapes':
+                    uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
+                    name = os.path.splitext(os.path.basename(f))[0]
+                    layer = QgsVectorLayer(uri, name, 'delimitedtext')
+                    QgsProject.instance().addMapLayer(layer)       
