@@ -227,6 +227,7 @@ class GTFS:
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
     def load_file(self):
+<<<<<<< HEAD
         # Load file - function that reads a GTFS ZIP file. 
             #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
             path = self.dockwidget.input_dir.filePath()
@@ -236,18 +237,40 @@ class GTFS:
 
             os.mkdir(path1) 
         # Extracts files to path. 
+=======
+        
+            #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
+            path = self.dockwidget.input_dir.filePath()
+            nazev = "pokus"
+  
+            path1 = os.path.join(os.path.dirname(path), nazev) 
+
+            os.mkdir(path1) 
+
+>>>>>>> d87b5d4fb82b0d7f54d0a529ddd1193b1a7c5711
             with ZipFile(path, 'r') as zip: 
                 # printing all the contents of the zip file 
                 zip.printdir() 
                 zip.extractall(path1) 
+<<<<<<< HEAD
         # Select text files only. 
+=======
+
+
+            print(path1)
+            print(path)
+>>>>>>> d87b5d4fb82b0d7f54d0a529ddd1193b1a7c5711
             files = []
             # r=root, d=directories, f = files
             for r, d, f in os.walk(path1):
                  for file in f:
                      if '.txt' in file:
                          files.append(os.path.join(r, file))
+<<<<<<< HEAD
         # Load text files to Layers and add vector layers to map.
+=======
+            
+>>>>>>> d87b5d4fb82b0d7f54d0a529ddd1193b1a7c5711
             for f in files:
                 #f = self.dockwidget.input_dir.filePath()
             
