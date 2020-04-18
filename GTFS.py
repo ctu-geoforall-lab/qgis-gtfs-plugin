@@ -11,7 +11,6 @@
         copyright            : (C) 2020 by Skupina B
         email                : martin.kouba@fsv.cvut.cz
  ***************************************************************************/
-
 /***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -45,7 +44,6 @@ class GTFS:
 
     def __init__(self, iface):
         """Constructor.
-
         :param iface: An interface instance that will be passed to this class
             which provides the hook by which you can manipulate the QGIS
             application at run time.
@@ -85,12 +83,9 @@ class GTFS:
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
-
         We implement this ourselves since we do not inherit QObject.
-
         :param message: String for translation.
         :type message: str, QString
-
         :returns: Translated version of message.
         :rtype: QString
         """
@@ -110,39 +105,29 @@ class GTFS:
         whats_this=None,
         parent=None):
         """Add a toolbar icon to the toolbar.
-
         :param icon_path: Path to the icon for this action. Can be a resource
             path (e.g. ':/plugins/foo/bar.png') or a normal file system path.
         :type icon_path: str
-
         :param text: Text that should be shown in menu items for this action.
         :type text: str
-
         :param callback: Function to be called when the action is triggered.
         :type callback: function
-
         :param enabled_flag: A flag indicating if the action should be enabled
             by default. Defaults to True.
         :type enabled_flag: bool
-
         :param add_to_menu: Flag indicating whether the action should also
             be added to the menu. Defaults to True.
         :type add_to_menu: bool
-
         :param add_to_toolbar: Flag indicating whether the action should also
             be added to the toolbar. Defaults to True.
         :type add_to_toolbar: bool
-
         :param status_tip: Optional text to show in a popup when mouse pointer
             hovers over the action.
         :type status_tip: str
-
         :param parent: Parent widget for the new action. Defaults None.
         :type parent: QWidget
-
         :param whats_this: Optional text to show in the status bar when the
             mouse pointer hovers over the action.
-
         :returns: The action that was created. Note that the action is also
             added to self.actions list.
         :rtype: QAction
@@ -242,27 +227,27 @@ class GTFS:
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
     def load_file(self):
-        """ Load file - function that reads a GTFS ZIP file. """
+        # Load file - function that reads a GTFS ZIP file. 
             #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
             path = self.dockwidget.input_dir.filePath()
-            nazev = "pokus"
-        """ Create a folder for files. """
-            path1 = os.path.join(os.path.dirname(path), nazev) 
+            name = os.path.splitext(os.path.basename(path))[0]
+        # Create a folder for files. 
+            path1 = os.path.join(os.path.dirname(path), name)
 
             os.mkdir(path1) 
-        """ Extracts files to path. """
+        # Extracts files to path. 
             with ZipFile(path, 'r') as zip: 
                 # printing all the contents of the zip file 
                 zip.printdir() 
                 zip.extractall(path1) 
-        """ Select text files only. """
+        # Select text files only. 
             files = []
             # r=root, d=directories, f = files
             for r, d, f in os.walk(path1):
                  for file in f:
                      if '.txt' in file:
                          files.append(os.path.join(r, file))
-        """ Load text files to Layers and add vector layers to map. """    
+        # Load text files to Layers and add vector layers to map.
             for f in files:
                 #f = self.dockwidget.input_dir.filePath()
             
