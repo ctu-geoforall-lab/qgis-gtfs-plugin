@@ -275,7 +275,6 @@ class GTFS:
                 name = os.path.splitext(os.path.basename(f))[0]
                 layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
                 print(layer.isValid())
-                QgsProject.instance().addMapLayer(layer)
                 if layer.name()== 'stops':
                     uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
                     name = os.path.splitext(os.path.basename(f))[0]
@@ -286,3 +285,5 @@ class GTFS:
                     name = os.path.splitext(os.path.basename(f))[0]
                     layer = QgsVectorLayer(uri, name, 'delimitedtext')
                     QgsProject.instance().addMapLayer(layer)       
+                else:
+                    QgsProject.instance().addMapLayer(layer)
