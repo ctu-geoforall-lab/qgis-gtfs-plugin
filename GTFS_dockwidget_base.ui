@@ -15,22 +15,22 @@
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="2">
+     <widget class="QgsFileWidget" name="input_dir"/>
+    </item>
     <item row="0" column="0">
      <widget class="QLabel" name="label_3">
       <property name="text">
-       <string>Vybrat soubor:</string>
+       <string>Choose File:</string>
       </property>
      </widget>
     </item>
     <item row="1" column="2">
      <widget class="QPushButton" name="submit">
       <property name="text">
-       <string>Načíst</string>
+       <string>Load</string>
       </property>
      </widget>
-    </item>
-    <item row="0" column="2">
-     <widget class="QgsFileWidget" name="input_dir"/>
     </item>
    </layout>
   </widget>
