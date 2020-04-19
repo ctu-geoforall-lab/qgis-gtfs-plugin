@@ -288,7 +288,11 @@ class GTFS:
                 if layer.name()== 'shapes':
                     uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
                     name = os.path.splitext(os.path.basename(f))[0]
-                    layer = QgsVectorLayer(uri, name, 'delimitedtext')
-                    QgsProject.instance().addMapLayer(layer)       
+                    layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
+                    QgsProject.instance().addMapLayer(layer_stop)       
                 else:
                     QgsProject.instance().addMapLayer(layer)
+            options = QgsVectorFileWriter.SaveVectorOptions()
+            options.driverName = 'GPKG'
+            options.layerName = 'shapes'  
+            error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
