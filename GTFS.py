@@ -251,7 +251,8 @@ class GTFS:
             # r=root, d=directories, f = files
             for r, d, f in os.walk(path1):
                 for file in f:
-                    if '.txt' in file:
+                    exten = os.path.splitext(os.path.basename(file))[1]
+                    if exten == '.txt':
                         files.append(os.path.join(r, file))
 
             # Load text files to Layers and add vector layers to map.
