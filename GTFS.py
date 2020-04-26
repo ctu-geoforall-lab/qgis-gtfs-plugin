@@ -31,6 +31,7 @@ from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
 from PyQt5.QtGui import QColor, QPixmap
+from PyQt5.QtWidgets import QFileDialog
 from qgis.utils import iface
 from qgis.core import *
 from qgis.gui import *
@@ -213,10 +214,12 @@ class GTFS:
             #    first run of plugin
             #    removed on close (see self.onClosePlugin method)
             if self.dockwidget == None:
+                self.browsePathSetting="/plugins/2020-b-qgis-gtfs-plugin"
+                self._home = QSettings().value(self.browsePathSetting,'')
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
  #               self.dockwidget.soubory.setFilters(QgsMapLayerProxyModel.VectorLayer)
-                self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
+                self.dockwidget.browse.clicked.connect(self.browse_file)
                 self.dockwidget.submit.clicked.connect(self.load_file)
 
             # connect to provide cleanup on closing of dockwidget
@@ -226,10 +229,16 @@ class GTFS:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+            
+    def browse_file(self):        
+        filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
+        if filename:
+            self.dockwidget.input_dir.setText(filename)   
+            
     def load_file(self):
         # Load file - function that reads a GTFS ZIP file. 
-        #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
-        path = self.dockwidget.input_dir.filePath()
+        #path = self.dockwidget.input_dir.filePath()
+        path = self.dockwidget.input_dir.text()
         if not path.endswith('.zip'):
             self.iface.messageBar().pushMessage(
             "Error", "Please upload a zipfile", level=Qgis.Critical)
