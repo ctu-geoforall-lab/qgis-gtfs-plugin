@@ -228,51 +228,51 @@ class GTFS:
             self.dockwidget.show()
     def load_file(self):
         # Load file - function that reads a GTFS ZIP file. 
-            #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
-            path = self.dockwidget.input_dir.filePath()
-            name = os.path.splitext(os.path.basename(path))[0]
+        #filename = r'C:\Users\Martin\Desktop\VS\magistr\2. semestr\FGIS\PID_GTFS\stops.txt'            
+        path = self.dockwidget.input_dir.filePath()
+        name = os.path.splitext(os.path.basename(path))[0]
         # Create a folder for files. 
-            path1 = os.path.join(os.path.dirname(path), name)
+        path1 = os.path.join(os.path.dirname(path), name)
 
-            os.mkdir(path1) 
+        os.mkdir(path1) 
         # Extracts files to path. 
-            with ZipFile(path, 'r') as zip: 
-                # printing all the contents of the zip file 
-                zip.printdir() 
-                zip.extractall(path1) 
+        with ZipFile(path, 'r') as zip: 
+            # printing all the contents of the zip file 
+            zip.printdir() 
+            zip.extractall(path1) 
         # Select text files only. 
-            print(path1)
-            print(path)
-            files = []
-            # r=root, d=directories, f = files
-            for r, d, f in os.walk(path1):
-                 for file in f:
-                     if '.txt' in file:
-                         files.append(os.path.join(r, file))
+        print(path1)
+        print(path)
+        files = []
+        # r=root, d=directories, f = files
+        for r, d, f in os.walk(path1):
+            for file in f:
+                if '.txt' in file:
+                    files.append(os.path.join(r, file))
 
         # Load text files to Layers and add vector layers to map.
-            for f in files:
-                #f = self.dockwidget.input_dir.filePath()
+        for f in files:
+            #f = self.dockwidget.input_dir.filePath()
             
-                uri = 'file:///{}?delimiter=,'.format(f)
-                print(uri)
+            uri = 'file:///{}?delimiter=,'.format(f)
+            print(uri)
 
+            name = os.path.splitext(os.path.basename(f))[0]
+            layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
+            print(layer.isValid())
+            if layer.name()== 'stops':
+                uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
                 name = os.path.splitext(os.path.basename(f))[0]
-                layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
-                print(layer.isValid())
-                if layer.name()== 'stops':
-                    uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
-                    name = os.path.splitext(os.path.basename(f))[0]
-                    layer = QgsVectorLayer(uri, name, 'delimitedtext')
-                    QgsProject.instance().addMapLayer(layer)
-                if layer.name()== 'shapes':
-                    uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
-                    name = os.path.splitext(os.path.basename(f))[0]
-                    layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
-                    QgsProject.instance().addMapLayer(layer_stop)       
-                else:
-                    QgsProject.instance().addMapLayer(layer)
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = 'GPKG'
-            options.layerName = 'shapes'  
-            error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
+                layer = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer)
+            if layer.name()== 'shapes':
+                uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
+                name = os.path.splitext(os.path.basename(f))[0]
+                layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer_stop)       
+            else:
+                QgsProject.instance().addMapLayer(layer)
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = 'GPKG'
+        options.layerName = 'shapes'  
+        error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
