@@ -229,26 +229,13 @@ class GTFS:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
-            
-    def browse_file(self):        
-        filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
-        if filename:
-            self.dockwidget.input_dir.setText(filename)   
-            
-    def load_file(self):
+        # Unzip file to new folder
+    def unzip_file(self, path):
         # Load file - function that reads a GTFS ZIP file. 
         #path = self.dockwidget.input_dir.filePath()
-        path = self.dockwidget.input_dir.text()
-        if not path.endswith('.zip'):
-            self.iface.messageBar().pushMessage(
-                "Error", "Please select a zipfile", level=Qgis.Critical
-            )
-            return
-
         name = os.path.splitext(os.path.basename(path))[0]
         # Create a folder for files. 
         path1 = os.path.join(os.path.dirname(path), name)
-
         os.mkdir(path1) 
         # Extracts files to path. 
         with ZipFile(path, 'r') as zip: 
@@ -265,7 +252,22 @@ class GTFS:
                 exten = os.path.splitext(os.path.basename(file))[1]
                 if exten == '.txt':
                     files.append(os.path.join(r, file))
-
+        return files
+                    
+                    
+    def browse_file(self):        
+        filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
+        if filename:
+            self.dockwidget.input_dir.setText(filename)   
+            
+    def load_file(self):
+        path = self.dockwidget.input_dir.text()
+        if not path.endswith('.zip'):
+            self.iface.messageBar().pushMessage(
+                "Error", "Please select a zipfile", level=Qgis.Critical
+            )
+            return
+        files=self.unzip_file(path)
         # Load text files to Layers and add vector layers to map.
         for f in files:
             #f = self.dockwidget.input_dir.filePath()
