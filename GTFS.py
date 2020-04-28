@@ -241,74 +241,76 @@ class GTFS:
         path = self.dockwidget.input_dir.text()
         if not path.endswith('.zip'):
             self.iface.messageBar().pushMessage(
-            "Error", "Please upload a zipfile", level=Qgis.Critical)
-        else:
-            name = os.path.splitext(os.path.basename(path))[0]
-            # Create a folder for files. 
-            path1 = os.path.join(os.path.dirname(path), name)
+                "Error", "Please select a zipfile", level=Qgis.Critical
+            )
+            return
 
-            os.mkdir(path1) 
-            # Extracts files to path. 
-            with ZipFile(path, 'r') as zip: 
-                # printing all the contents of the zip file 
-                zip.printdir() 
-                zip.extractall(path1) 
-            # Select text files only. 
-            print(path1)
-            print(path)
-            files = []
-            # r=root, d=directories, f = files
-            for r, d, f in os.walk(path1):
-                for file in f:
-                    exten = os.path.splitext(os.path.basename(file))[1]
-                    if exten == '.txt':
-                        files.append(os.path.join(r, file))
+        name = os.path.splitext(os.path.basename(path))[0]
+        # Create a folder for files. 
+        path1 = os.path.join(os.path.dirname(path), name)
 
-            # Load text files to Layers and add vector layers to map.
-            for f in files:
-                #f = self.dockwidget.input_dir.filePath()
-                
-                uri = 'file:///{}?delimiter=,'.format(f)
-                print(uri)
+        os.mkdir(path1) 
+        # Extracts files to path. 
+        with ZipFile(path, 'r') as zip: 
+            # printing all the contents of the zip file 
+            zip.printdir() 
+            zip.extractall(path1) 
+        # Select text files only. 
+        print(path1)
+        print(path)
+        files = []
+        # r=root, d=directories, f = files
+        for r, d, f in os.walk(path1):
+            for file in f:
+                exten = os.path.splitext(os.path.basename(file))[1]
+                if exten == '.txt':
+                    files.append(os.path.join(r, file))
 
+        # Load text files to Layers and add vector layers to map.
+        for f in files:
+            #f = self.dockwidget.input_dir.filePath()
+
+            uri = 'file:///{}?delimiter=,'.format(f)
+            print(uri)
+
+            name = os.path.splitext(os.path.basename(f))[0]
+            layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
+            print(layer.isValid())
+            if layer.name()== 'stops':
+                uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
                 name = os.path.splitext(os.path.basename(f))[0]
-                layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
-                print(layer.isValid())
-                if layer.name()== 'stops':
-                    uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
-                    name = os.path.splitext(os.path.basename(f))[0]
-                    layer = QgsVectorLayer(uri, name, 'delimitedtext')
-                    QgsProject.instance().addMapLayer(layer)
-                elif layer.name()== 'shapes':
-                    uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
-                    name = os.path.splitext(os.path.basename(f))[0]
-                    layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
-                    QgsProject.instance().addMapLayer(layer_stop)       
-                else:
-                    QgsProject.instance().addMapLayer(layer)
-            options = QgsVectorFileWriter.SaveVectorOptions()
-            options.driverName = 'GPKG'
-            options.layerName = 'shapes'  
-            error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
-            
-            layer = QgsProject.instance().mapLayersByName("shapes")[0]
-            features = layer.getFeatures()
-            hodList=[]
-            for feat in features:
-                ids=feat['shape_id']
-                hodList.append(ids)
-            unikatniId=list(set(hodList))
-            v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
-            pr = v_layer.dataProvider()
-            for i in unikatniId:
-                expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
-                request = QgsFeatureRequest().setFilterExpression(expression)
-                PointList = []
-                line=QgsFeature()
-                for f in layer.getFeatures(request):
-                    termino = QgsPoint(f['shape_pt_lon'],f['shape_pt_lat']) #I do understand that shape_pt_lon and shape_pt_lat are columns containing coordinates 
-                    PointList.append(termino)
-                line.setGeometry(QgsGeometry.fromPolyline(PointList))
-                pr.addFeatures( [ line ] )
-            v_layer.updateExtents()
-            QgsProject.instance().addMapLayers([v_layer])
+                layer = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer)
+            elif layer.name()== 'shapes':
+                uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
+                name = os.path.splitext(os.path.basename(f))[0]
+                layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer_stop)       
+            else:
+                QgsProject.instance().addMapLayer(layer)
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = 'GPKG'
+        options.layerName = 'shapes'  
+        error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
+
+        layer = QgsProject.instance().mapLayersByName("shapes")[0]
+        features = layer.getFeatures()
+        hodList=[]
+        for feat in features:
+            ids=feat['shape_id']
+            hodList.append(ids)
+        unikatniId=list(set(hodList))
+        v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
+        pr = v_layer.dataProvider()
+        for i in unikatniId:
+            expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
+            request = QgsFeatureRequest().setFilterExpression(expression)
+            PointList = []
+            line=QgsFeature()
+            for f in layer.getFeatures(request):
+                termino = QgsPoint(f['shape_pt_lon'],f['shape_pt_lat']) #I do understand that shape_pt_lon and shape_pt_lat are columns containing coordinates 
+                PointList.append(termino)
+            line.setGeometry(QgsGeometry.fromPolyline(PointList))
+            pr.addFeatures( [ line ] )
+        v_layer.updateExtents()
+        QgsProject.instance().addMapLayers([v_layer])
