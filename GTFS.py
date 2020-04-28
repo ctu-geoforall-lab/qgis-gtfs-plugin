@@ -290,3 +290,25 @@ class GTFS:
             options.driverName = 'GPKG'
             options.layerName = 'shapes'  
             error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
+            
+            layer = QgsProject.instance().mapLayersByName("shapes")[0]
+            features = layer.getFeatures()
+            hodList=[]
+            for feat in features:
+                ids=feat['shape_id']
+                hodList.append(ids)
+            unikatniId=list(set(hodList))
+            v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
+            pr = v_layer.dataProvider()
+            for i in unikatniId:
+                expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
+                request = QgsFeatureRequest().setFilterExpression(expression)
+                PointList = []
+                line=QgsFeature()
+                for f in layer.getFeatures(request):
+                    termino = QgsPoint(f['shape_pt_lon'],f['shape_pt_lat']) #I do understand that shape_pt_lon and shape_pt_lat are columns containing coordinates 
+                    PointList.append(termino)
+                line.setGeometry(QgsGeometry.fromPolyline(PointList))
+                pr.addFeatures( [ line ] )
+            v_layer.updateExtents()
+            QgsProject.instance().addMapLayers([v_layer])
