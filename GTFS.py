@@ -290,3 +290,45 @@ class GTFS:
             options.driverName = 'GPKG'
             options.layerName = 'shapes'  
             error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
+            
+            layer = QgsProject.instance().mapLayersByName("shapes")[0]
+            features = layer.getFeatures()
+            hodList=[]
+            for feat in features:
+                ids=feat['shape_id']
+                hodList.append(ids)
+            unikatniId=list(set(hodList))
+
+
+            v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
+            pr = v_layer.dataProvider()
+            ## I do believe that you want to store resulting lines in one layer,
+            ## so these lines should be moved from internal for loop
+
+
+            for i in unikatniId:
+                expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
+                request = QgsFeatureRequest().setFilterExpression(expression)
+                PointList = []
+
+                line=QgsFeature()
+                for f in layer.getFeatures(request):
+
+                    termino = QgsPoint(f['shape_pt_lon'],f['shape_pt_lat']) #I do understand that shape_pt_lon and shape_pt_lat are columns containing coordinates 
+                    ## definitely you want to use f rather then feat. 
+                    ## Feat was returning last scanned point,
+                    ## that is why you were getting empty lines
+                    ## (actually they were lines consisting of one point) 
+
+                    PointList.append(termino)
+
+                line.setGeometry(QgsGeometry.fromPolyline(PointList))
+                pr.addFeatures( [ line ] )
+                ## indenting might be reason of logical errors.
+                ## You probably want to add line only once for given unikatniId
+                ## so take it outside of "f" loop
+
+            v_layer.updateExtents()
+            QgsProject.instance().addMapLayers([v_layer])
+            ## And finally add shape to MapLayers, but only once
+            ## (if you want to have one layer with resulting lines)
