@@ -38,7 +38,7 @@ from qgis.gui import *
 
 from zipfile import ZipFile
 
-import os.path
+from osgeo import ogr
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -92,7 +92,6 @@ class GTFS:
         """
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('GTFS', message)
-
 
     def add_action(
         self,
@@ -272,12 +271,20 @@ class GTFS:
                 options.driverName = 'GPKG' 
                 options.layerName = "_".join(layer.name().split(' '))
                 error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)
-                    
+                
     def browse_file(self):        
         filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
         if filename:
-            self.dockwidget.input_dir.setText(filename)   
-            
+            self.dockwidget.input_dir.setText(filename) 
+          
+    def load_layers_from_gpkg(self,path):
+        gpkg_name = os.path.splitext(os.path.basename(path))[0]
+        path_to_gpkg = os.path.join(os.path.dirname(path), gpkg_name + '.gpkg')
+        conn = ogr.Open(path_to_gpkg)
+
+        for i in conn:
+            layer=iface.addVectorLayer(path_to_gpkg + "|layername=" + i.GetName(), i.GetName(), 'ogr')
+                
     def load_file(self):
         path = self.dockwidget.input_dir.text()
         if not path.endswith('.zip'):
@@ -289,7 +296,11 @@ class GTFS:
         path1 = os.path.join(os.path.dirname(path), name)
         files=self.unzip_file(path)
         self.save_layers_into_gpkg(files,path1)
+        self.load_layers_from_gpkg(path1)
+
+        
         # Load text files to Layers and add vector layers to map.
+        """
         for f in files:
             #f = self.dockwidget.input_dir.filePath()
 
@@ -299,6 +310,7 @@ class GTFS:
             name = os.path.splitext(os.path.basename(f))[0]
             layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
             print(layer.isValid())
+            
             if layer.name()== 'stops':
                 uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
                 name = os.path.splitext(os.path.basename(f))[0]
@@ -332,3 +344,4 @@ class GTFS:
             pr.addFeatures( [ line ] )
         v_layer.updateExtents()
         QgsProject.instance().addMapLayers([v_layer])
+        """
