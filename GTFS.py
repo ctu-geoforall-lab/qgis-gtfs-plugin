@@ -39,6 +39,7 @@ from qgis.gui import *
 from zipfile import ZipFile
 
 from osgeo import ogr
+import shutil 
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -235,8 +236,7 @@ class GTFS:
         name = os.path.splitext(os.path.basename(path))[0]
         # Create a folder for files. 
         path1 = os.path.join(os.path.dirname(path), name)
-        if not os.path.exists(path1):
-            os.mkdir(path1) 
+        os.mkdir(path1) 
         # Extracts files to path. 
         with ZipFile(path, 'r') as zip: 
             # printing all the contents of the zip file 
@@ -270,8 +270,8 @@ class GTFS:
                 options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
                 options.driverName = 'GPKG' 
                 options.layerName = "_".join(layer.name().split(' '))
-                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)
-                
+                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)   
+            
     def browse_file(self):        
         filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
         if filename:
@@ -284,7 +284,10 @@ class GTFS:
 
         for i in conn:
             layer=iface.addVectorLayer(path_to_gpkg + "|layername=" + i.GetName(), i.GetName(), 'ogr')
-                
+    
+    def delete_folder(self,path1):
+        shutil.rmtree(path1)
+    
     def load_file(self):
         path = self.dockwidget.input_dir.text()
         if not path.endswith('.zip'):
@@ -297,6 +300,7 @@ class GTFS:
         files=self.unzip_file(path)
         self.save_layers_into_gpkg(files,path1)
         self.load_layers_from_gpkg(path1)
+        self.delete_folder(path1)
 
         
         # Load text files to Layers and add vector layers to map.
