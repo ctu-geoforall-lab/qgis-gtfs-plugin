@@ -236,7 +236,8 @@ class GTFS:
         name = os.path.splitext(os.path.basename(path))[0]
         # Create a folder for files. 
         path1 = os.path.join(os.path.dirname(path), name)
-        os.mkdir(path1) 
+        if not os.path.exists(path1):
+            os.mkdir(path1) 
         # Extracts files to path. 
         with ZipFile(path, 'r') as zip: 
             # printing all the contents of the zip file 
