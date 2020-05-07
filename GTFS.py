@@ -253,7 +253,24 @@ class GTFS:
                 if exten == '.txt':
                     files.append(os.path.join(r, file))
         return files
-                    
+    def save_layers_into_gpkg(self, files,path):
+        firstt = True
+        for file in files: 
+            uri = 'file:///{}?delimiter=,'.format(file)
+            name = os.path.splitext(os.path.basename(file))[0]
+            layer = QgsVectorLayer(uri, name, 'delimitedtext')
+            if firstt == True:
+                options = QgsVectorFileWriter.SaveVectorOptions()
+                options.driverName = 'GPKG'
+                options.layerName = "_".join(layer.name().split(' '))
+                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)
+                firstt=False
+            else:
+                options = QgsVectorFileWriter.SaveVectorOptions()
+                options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
+                options.driverName = 'GPKG' 
+                options.layerName = "_".join(layer.name().split(' '))
+                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)
                     
     def browse_file(self):        
         filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
@@ -267,7 +284,10 @@ class GTFS:
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
             return
+        name = os.path.splitext(os.path.basename(path))[0]
+        path1 = os.path.join(os.path.dirname(path), name)
         files=self.unzip_file(path)
+        self.save_layers_into_gpkg(files,path1)
         # Load text files to Layers and add vector layers to map.
         for f in files:
             #f = self.dockwidget.input_dir.filePath()
@@ -290,11 +310,6 @@ class GTFS:
                 QgsProject.instance().addMapLayer(layer_stop)       
             else:
                 QgsProject.instance().addMapLayer(layer)
-        options = QgsVectorFileWriter.SaveVectorOptions()
-        options.driverName = 'GPKG'
-        options.layerName = 'shapes'  
-        error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stop,path1,options)
-
         layer = QgsProject.instance().mapLayersByName("shapes")[0]
         features = layer.getFeatures()
         hodList=[]
