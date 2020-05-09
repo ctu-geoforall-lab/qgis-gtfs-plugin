@@ -255,11 +255,9 @@ class GTFS:
         return files
     def save_layers_into_gpkg(self, files,path):
         firstt = True
-        layer_names=[]
         for file in files: 
             uri = 'file:///{}?delimiter=,'.format(file)
             name = os.path.splitext(os.path.basename(file))[0]
-            layer_names.append(name)
             layer = QgsVectorLayer(uri, name, 'delimitedtext')
             if firstt == True:
                 options = QgsVectorFileWriter.SaveVectorOptions()
@@ -272,33 +270,63 @@ class GTFS:
                 options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
                 options.driverName = 'GPKG' 
                 options.layerName = "_".join(layer.name().split(' '))
-                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)
-                if layer.name()== 'stops':
-                    uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(file)
-                    layer_stops = QgsVectorLayer(uri, layer.name(), 'delimitedtext')
-                    error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_stops,path,options)
-                elif layer.name()== 'shapes':
-                    uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(file)
-                    layer_shapes = QgsVectorLayer(uri, layer.name(), 'delimitedtext')
-                    error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_shapes,path,options)
-        return layer_names
+                error_message = QgsVectorFileWriter.writeAsVectorFormat(layer,path,options)   
+            
     def browse_file(self):        
         filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
         if filename:
             self.dockwidget.input_dir.setText(filename) 
           
-    def load_layers_from_gpkg(self,path,names):
-        for name in names:
-            gpkg_name = os.path.splitext(os.path.basename(path))[0]
-            path_to_gpkg = os.path.join(os.path.dirname(path), gpkg_name + '.gpkg')
-            path_to_layer=path_to_gpkg + "|layername=" + name
-            other_layer = QgsVectorLayer(path_to_layer, name, "ogr")
-            QgsProject.instance().addMapLayer(other_layer) 
-            
+    def load_layers_from_gpkg(self,path):
+        gpkg_name = os.path.splitext(os.path.basename(path))[0]
+        path_to_gpkg = os.path.join(os.path.dirname(path), gpkg_name + '.gpkg')
+        conn = ogr.Open(path_to_gpkg)
+
+        for i in conn:
+            layer=iface.addVectorLayer(path_to_gpkg + "|layername=" + i.GetName(), i.GetName(), 'ogr')
+    
     def delete_folder(self,path1):
         shutil.rmtree(path1)
     
-    def connect_shapes(self):
+    def load_file(self):
+        path = self.dockwidget.input_dir.text()
+        if not path.endswith('.zip'):
+            self.iface.messageBar().pushMessage(
+                "Error", "Please select a zipfile", level=Qgis.Critical
+            )
+            return
+        name = os.path.splitext(os.path.basename(path))[0]
+        path1 = os.path.join(os.path.dirname(path), name)
+        files=self.unzip_file(path)
+        self.save_layers_into_gpkg(files,path1)
+        self.load_layers_from_gpkg(path1)
+        self.delete_folder(path1)
+
+        
+        # Load text files to Layers and add vector layers to map.
+        """
+        for f in files:
+            #f = self.dockwidget.input_dir.filePath()
+
+            uri = 'file:///{}?delimiter=,'.format(f)
+            print(uri)
+
+            name = os.path.splitext(os.path.basename(f))[0]
+            layer = QgsVectorLayer(uri, '{}'.format(name), 'delimitedtext')
+            print(layer.isValid())
+            
+            if layer.name()== 'stops':
+                uri = 'file:///{}?delimiter=,&xField=stop_lon&yField=stop_lat&crs=epsg:4326'.format(f)
+                name = os.path.splitext(os.path.basename(f))[0]
+                layer = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer)
+            elif layer.name()== 'shapes':
+                uri = 'file:///{}?delimiter=,&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'.format(f)
+                name = os.path.splitext(os.path.basename(f))[0]
+                layer_stop = QgsVectorLayer(uri, name, 'delimitedtext')
+                QgsProject.instance().addMapLayer(layer_stop)       
+            else:
+                QgsProject.instance().addMapLayer(layer)
         layer = QgsProject.instance().mapLayersByName("shapes")[0]
         features = layer.getFeatures()
         hodList=[]
@@ -311,40 +339,13 @@ class GTFS:
         for i in unikatniId:
             expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
             request = QgsFeatureRequest().setFilterExpression(expression)
+            PointList = []
             line=QgsFeature()
-            features_shape =layer.getFeatures(request)
-            sorted_f_shape=sorted(features_shape,key=lambda por:por['shape_pt_sequence'])
-            PointList=[]
-            for f in sorted_f_shape:
-                point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
-                PointList.append(point)
+            for f in layer.getFeatures(request):
+                termino = QgsPoint(f['shape_pt_lon'],f['shape_pt_lat']) #I do understand that shape_pt_lon and shape_pt_lat are columns containing coordinates 
+                PointList.append(termino)
             line.setGeometry(QgsGeometry.fromPolyline(PointList))
             pr.addFeatures( [ line ] )
         v_layer.updateExtents()
-        return(v_layer)
-    
-    def load_file(self):
-        path = self.dockwidget.input_dir.text()
-        if not path.endswith('.zip'):
-            self.iface.messageBar().pushMessage(
-                "Error", "Please select a zipfile", level=Qgis.Critical
-            )
-            return
-        name = os.path.splitext(os.path.basename(path))[0]
-        path1 = os.path.join(os.path.dirname(path), name)
-        files=self.unzip_file(path)
-        names=self.save_layers_into_gpkg(files,path1)
-        self.load_layers_from_gpkg(path1,names)
-        self.delete_folder(path1)
-        
-        line=self.connect_shapes()
-        options = QgsVectorFileWriter.SaveVectorOptions()
-        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
-        options.driverName = 'GPKG' 
-        options.layerName = "_".join(line.name().split(' '))
-        QgsVectorFileWriter.writeAsVectorFormat(line,path1,options)
-        gpkg_name = os.path.splitext(os.path.basename(path1))[0]
-        path_to_gpkg = os.path.join(os.path.dirname(path1), gpkg_name + '.gpkg')
-        path_to_layer=path_to_gpkg + "|layername=" + line.name()
-        other_layer = QgsVectorLayer(path_to_layer, line.name(), "ogr")
-        QgsProject.instance().addMapLayer(other_layer)
+        QgsProject.instance().addMapLayers([v_layer])
+        """
