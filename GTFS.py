@@ -309,7 +309,7 @@ class GTFS:
         v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
         pr = v_layer.dataProvider()
         for i in unikatniId:
-            expression = ('"shape_id" LIKE \'%s%s\''%(i,'%'))
+            expression = ('"shape_id" = \'%s%s\''%(i,''))
             request = QgsFeatureRequest().setFilterExpression(expression)
             line=QgsFeature()
             features_shape =layer.getFeatures(request)
