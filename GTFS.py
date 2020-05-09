@@ -219,7 +219,9 @@ class GTFS:
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
  #               self.dockwidget.soubory.setFilters(QgsMapLayerProxyModel.VectorLayer)
-                self.dockwidget.browse.clicked.connect(self.browse_file)
+                self.dockwidget.input_dir.setDialogTitle("Select GTFS")
+                self.dockwidget.input_dir.setFilter("GTFS *.zip")
+                self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
                 self.dockwidget.submit.clicked.connect(self.load_file)
 
             # connect to provide cleanup on closing of dockwidget
@@ -253,6 +255,7 @@ class GTFS:
                 if exten == '.txt':
                     files.append(os.path.join(r, file))
         return files
+
     def save_layers_into_gpkg(self, files,path):
         firstt = True
         layer_names=[]
@@ -282,11 +285,7 @@ class GTFS:
                     layer_shapes = QgsVectorLayer(uri, layer.name(), 'delimitedtext')
                     error_message = QgsVectorFileWriter.writeAsVectorFormat(layer_shapes,path,options)
         return layer_names
-    def browse_file(self):        
-        filename = QFileDialog.getOpenFileName(self.dockwidget,"Select file", self._home, "GTFS (*.zip)")[0]
-        if filename:
-            self.dockwidget.input_dir.setText(filename) 
-          
+
     def load_layers_from_gpkg(self,path,names):
         for name in names:
             gpkg_name = os.path.splitext(os.path.basename(path))[0]
@@ -324,7 +323,7 @@ class GTFS:
         return(v_layer)
     
     def load_file(self):
-        path = self.dockwidget.input_dir.text()
+        path = self.dockwidget.input_dir.filePath()
         if not path.endswith('.zip'):
             self.iface.messageBar().pushMessage(
                 "Error", "Please select a zipfile", level=Qgis.Critical
