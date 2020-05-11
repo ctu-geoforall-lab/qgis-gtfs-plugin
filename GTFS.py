@@ -309,7 +309,7 @@ class GTFS:
         v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
         pr = v_layer.dataProvider()
         layer_provider=v_layer.dataProvider()
-        layer_provider.addAttributes([QgsField("shape_id",QVariant.String)])
+        layer_provider.addAttributes([QgsField("line_id",QVariant.String),QgsField("line_dist_traveled",QVariant.Double)])
         v_layer.updateFields()
         for i in unikatniId:
             expression = ('"shape_id" = \'%s%s\''%(i,''))
@@ -318,11 +318,17 @@ class GTFS:
             features_shape =layer.getFeatures(request)
             sorted_f_shape=sorted(features_shape,key=lambda por:por['shape_pt_sequence'])
             PointList=[]
+            DistList=[]
             for f in sorted_f_shape:
                 point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
+                dist=(f['shape_dist_traveled'])
                 PointList.append(point)
+                DistList.append(dist)
             line.setGeometry(QgsGeometry.fromPolyline(PointList))
-            line.setAttributes([i])
+            for j in range(0, len(sorted_f_shape)): 
+                if j == (len(sorted_f_shape)-1):
+                    k=DistList[j]
+            line.setAttributes([i,k])
             pr.addFeatures( [ line ] )
         v_layer.updateExtents()
         return(v_layer)
