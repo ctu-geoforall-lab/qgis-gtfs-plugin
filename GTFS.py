@@ -37,9 +37,10 @@ from qgis.core import *
 from qgis.gui import *
 
 from zipfile import ZipFile
-
+from PyQt5.QtCore import QVariant
 from osgeo import ogr
 import shutil 
+
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -307,6 +308,9 @@ class GTFS:
         unikatniId=list(set(hodList))
         v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
         pr = v_layer.dataProvider()
+        layer_provider=v_layer.dataProvider()
+        layer_provider.addAttributes([QgsField("shape_id",QVariant.String)])
+        v_layer.updateFields()
         for i in unikatniId:
             expression = ('"shape_id" = \'%s%s\''%(i,''))
             request = QgsFeatureRequest().setFilterExpression(expression)
@@ -318,6 +322,7 @@ class GTFS:
                 point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
                 PointList.append(point)
             line.setGeometry(QgsGeometry.fromPolyline(PointList))
+            line.setAttributes([i])
             pr.addFeatures( [ line ] )
         v_layer.updateExtents()
         return(v_layer)
