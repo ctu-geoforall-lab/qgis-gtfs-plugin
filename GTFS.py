@@ -294,11 +294,9 @@ class GTFS:
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,path,names):
         for name in names:
-            gpkg_name = os.path.splitext(os.path.basename(path))[0]
-            path_to_gpkg = os.path.join(os.path.dirname(path), gpkg_name + '.gpkg')
-            path_to_layer=path_to_gpkg + "|layername=" + name
-            other_layer = QgsVectorLayer(path_to_layer, name, "ogr")
-            QgsProject.instance().addMapLayer(other_layer)
+            path_to_layer = path + "|layername=" + name
+            layer = QgsVectorLayer(path_to_layer, name, "ogr")
+            QgsProject.instance().addMapLayer(layer)
 
     # The function delet unzipped folder
     def delete_folder(self,path_with_layers):
@@ -353,10 +351,12 @@ class GTFS:
         path_with_layers = os.path.join(os.path.dirname(path), name)
 
         # unzip input archive, get list of CVS files
-        files=self.unzip_file(path)
+        files = self.unzip_file(path)
         # load csv files, ..., save memory layers into target GeoPackage DB
-        names=self.save_layers_into_gpkg(files,path_with_layers)
-        self.load_layers_from_gpkg(path_with_layers,names)
+        names = self.save_layers_into_gpkg(files, path_with_layers)
+        # load layers from GPKG into map canvas
+        self.load_layers_from_gpkg(path_with_layers + '.gpkg', names)
+        # delete working directory with CSV files
         self.delete_folder(path_with_layers)
         
         line=self.connect_shapes()
