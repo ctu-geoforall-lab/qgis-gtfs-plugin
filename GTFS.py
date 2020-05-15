@@ -40,6 +40,7 @@ from zipfile import ZipFile
 from PyQt5.QtCore import QVariant
 from osgeo import ogr
 import shutil 
+import ctypes
 
 
 class GTFS:
@@ -346,12 +347,15 @@ class GTFS:
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
             return
+            
+            
         # Use of defined functions
         name = os.path.splitext(os.path.basename(path))[0]
         path_with_layers = os.path.join(os.path.dirname(path), name)
 
         # unzip input archive, get list of CVS files
         files = self.unzip_file(path)
+        ctypes.windll.user32.MessageBoxW(0, "It will take a while", "Warning!", 0)        
         # load csv files, ..., save memory layers into target GeoPackage DB
         names = self.save_layers_into_gpkg(files, path_with_layers)
         # load layers from GPKG into map canvas
