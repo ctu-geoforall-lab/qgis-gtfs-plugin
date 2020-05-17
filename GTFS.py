@@ -295,17 +295,19 @@ class GTFS:
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,path,names):
         for name in names:
-            path_to_layer = path + "|layername=" + name
-            layer = QgsVectorLayer(path_to_layer, name, "ogr")
-            QgsProject.instance().addMapLayer(layer)
+            if name != 'shapes':
+                path_to_layer = path + "|layername=" + name
+                layer = QgsVectorLayer(path_to_layer, name, "ogr")
+                QgsProject.instance().addMapLayer(layer)
 
     # The function delet unzipped folder
     def delete_folder(self,path_with_layers):
         shutil.rmtree(path_with_layers)
 
     # The function joins the points from point layer "shapes" and adds information to the attribute table
-    def connect_shapes(self):
-        layer = QgsProject.instance().mapLayersByName("shapes")[0]
+    def connect_shapes(self,path):
+        path_to_layer = path + "|layername=" + 'shapes'
+        layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         features = layer.getFeatures()
         IDList=[]
         for feat in features:
@@ -363,7 +365,7 @@ class GTFS:
         # delete working directory with CSV files
         self.delete_folder(path_with_layers)
         
-        line=self.connect_shapes()
+        line=self.connect_shapes(path_with_layers + '.gpkg')
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
         options.driverName = 'GPKG' 
