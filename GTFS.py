@@ -278,6 +278,7 @@ class GTFS:
                 uri += '&xField=stop_lon&yField=stop_lat&crs=epsg:4326'
             elif name == 'shapes':
                 uri += '&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'
+                name='shapes_point'
 
             # create CSV-based layer
             layer_names.append(name)
@@ -295,7 +296,7 @@ class GTFS:
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,path,names):
         for name in names:
-            if name != 'shapes':
+            if name != 'shapes_point':
                 path_to_layer = path + "|layername=" + name
                 layer = QgsVectorLayer(path_to_layer, name, "ogr")
                 QgsProject.instance().addMapLayer(layer)
@@ -306,7 +307,7 @@ class GTFS:
 
     # The function joins the points from point layer "shapes" and adds information to the attribute table
     def connect_shapes(self,path):
-        path_to_layer = path + "|layername=" + 'shapes'
+        path_to_layer = path + "|layername=" + 'shapes_point'
         layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         features = layer.getFeatures()
         IDList=[]
@@ -314,10 +315,10 @@ class GTFS:
             ids=feat['shape_id']
             IDList.append(ids)
         uniqueId=list(set(IDList))
-        v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "line", "memory")
+        v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "shapes_line", "memory")
         pr = v_layer.dataProvider()
         layer_provider=v_layer.dataProvider()
-        layer_provider.addAttributes([QgsField("line_id",QVariant.String),QgsField("line_dist_traveled",QVariant.Double)])
+        layer_provider.addAttributes([QgsField("shape_id",QVariant.String),QgsField("shape_dist_traveled",QVariant.Double)])
         v_layer.updateFields()
         for i in uniqueId:
             expression = ('"shape_id" = \'%s%s\''%(i,''))
@@ -369,10 +370,10 @@ class GTFS:
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
         options.driverName = 'GPKG' 
-        options.layerName = "_".join(line.name().split(' '))
+        options.layerName = line.name()
         QgsVectorFileWriter.writeAsVectorFormat(line,path_with_layers,options)
         gpkg_name = os.path.splitext(os.path.basename(path_with_layers))[0]
         path_to_gpkg = os.path.join(os.path.dirname(path_with_layers), gpkg_name + '.gpkg')
         path_to_layer=path_to_gpkg + "|layername=" + line.name()
-        other_layer = QgsVectorLayer(path_to_layer, line.name(), "ogr")
+        other_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         QgsProject.instance().addMapLayer(other_layer)
