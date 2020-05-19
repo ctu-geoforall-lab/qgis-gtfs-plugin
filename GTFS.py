@@ -372,8 +372,6 @@ class GTFS:
         options.driverName = 'GPKG' 
         options.layerName = line.name()
         QgsVectorFileWriter.writeAsVectorFormat(line,path_with_layers,options)
-        gpkg_name = os.path.splitext(os.path.basename(path_with_layers))[0]
-        path_to_gpkg = os.path.join(os.path.dirname(path_with_layers), gpkg_name + '.gpkg')
-        path_to_layer=path_to_gpkg + "|layername=" + line.name()
+        path_to_layer=path_with_layers + '.gpkg' + '|layername=' + line.name()
         other_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         QgsProject.instance().addMapLayer(other_layer)
