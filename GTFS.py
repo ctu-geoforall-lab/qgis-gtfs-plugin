@@ -41,6 +41,7 @@ from PyQt5.QtCore import QVariant
 from osgeo import ogr
 import shutil 
 import ctypes
+import sqlite3
 
 
 class GTFS:
@@ -300,6 +301,15 @@ class GTFS:
                 path_to_layer = path + "|layername=" + name
                 layer = QgsVectorLayer(path_to_layer, name, "ogr")
                 QgsProject.instance().addMapLayer(layer)
+        connection = sqlite3.connect(path)
+        cursor = connection.cursor()
+        cursor.execute("SELECT shape_id FROM shapes_point;")
+        createSecondaryIndex = "CREATE INDEX shape_id_index ON shapes_point(shape_id)"
+        createSecondaryIndex2 = "CREATE INDEX shape_seq_index ON shapes_point(shape_pt_sequence)"
+        cursor.execute(createSecondaryIndex)
+        cursor.execute(createSecondaryIndex2)
+        cursor.close()
+        connection.close()
 
     # The function delet unzipped folder
     def delete_folder(self,path_with_layers):
