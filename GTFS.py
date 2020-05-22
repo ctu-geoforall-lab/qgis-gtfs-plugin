@@ -266,7 +266,7 @@ class GTFS:
         return files
 
     # The function save layers from unzipped path into geopackage
-    def save_layers_into_gpkg(self, files,path):
+    def save_layers_into_gpkg(self, files, path):
         layer_names = []
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = 'GPKG'
@@ -290,7 +290,7 @@ class GTFS:
             QgsVectorFileWriter.writeAsVectorFormat(layer, path, options)
             # append layers into single GPKG
             options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
-    
+
         # Return all layers from geopackage
         return layer_names
     
