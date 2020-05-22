@@ -301,15 +301,13 @@ class GTFS:
                 path_to_layer = path + "|layername=" + name
                 layer = QgsVectorLayer(path_to_layer, name, "ogr")
                 QgsProject.instance().addMapLayer(layer)
-        connection = sqlite3.connect(path)
-        cursor = connection.cursor()
-        cursor.execute("SELECT shape_id FROM shapes_point;")
-        createSecondaryIndex = "CREATE INDEX shape_id_index ON shapes_point(shape_id)"
-        createSecondaryIndex2 = "CREATE INDEX shape_seq_index ON shapes_point(shape_pt_sequence)"
-        cursor.execute(createSecondaryIndex)
-        cursor.execute(createSecondaryIndex2)
-        cursor.close()
-        connection.close()
+
+        # create index on on shape_id, shape_pt_sequence
+        with sqlite3.connect(path) as connection:
+            cursor = connection.cursor()
+            for idx in ('shape_id', 'shape_pt_sequence'):
+                cursor.execute("CREATE INDEX {0}_index ON shapes_point({0})".format(idx))
+            cursor.close()
 
     # The function delet unzipped folder
     def delete_folder(self,path_with_layers):
@@ -368,7 +366,10 @@ class GTFS:
 
         # unzip input archive, get list of CVS files
         files = self.unzip_file(path)
-        ctypes.windll.user32.MessageBoxW(0, "It will take a while", "Warning!", 0)        
+        self.iface.messageBar().pushMessage(
+            "Warning", "It will take a while!", level=Qgis.Warning
+        )
+        self.iface.mainWindow().repaint()
         # load csv files, ..., save memory layers into target GeoPackage DB
         names = self.save_layers_into_gpkg(files, path_with_layers)
         # load layers from GPKG into map canvas
