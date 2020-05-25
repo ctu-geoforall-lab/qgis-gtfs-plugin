@@ -236,7 +236,7 @@ class GTFS:
             self.dockwidget.show()
 
     # The function unzip file to new folder
-    def unzip_file(self, path):
+    def unzip_file(self, GTFS_folder):
         """
         Unzip input archive.
 
@@ -245,25 +245,24 @@ class GTFS:
         :return list: list of input CSV file to be loaded
         """
         # Load file - function that reads a GTFS ZIP file. 
-        #path = self.dockwidget.input_dir.filePath()
-        name = os.path.splitext(os.path.basename(path))[0]
-        # Create a folder for files. 
-        path_with_layers = os.path.join(os.path.dirname(path), name)
-        os.mkdir(path_with_layers)
+        GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
+        GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
+        # Create a folder for files.
+        os.mkdir(GTFS_path)
         # Extracts files to path. 
-        with ZipFile(path, 'r') as zip: 
+        with ZipFile(GTFS_folder, 'r') as zip:
             # printing all the contents of the zip file 
             zip.printdir() 
-            zip.extractall(path_with_layers)
+            zip.extractall(GTFS_path)
         # Select text files only.
-        files = []
+        csv_files = []
         # r=root, d=directories, f = files
-        for r, d, f in os.walk(path_with_layers):
-            for file in f:
-                current_file = os.path.splitext(os.path.basename(file))[1]
+        for r, d, f in os.walk(GTFS_path):
+            for csv_file in f:
+                current_file = os.path.splitext(os.path.basename(csv_file))[1]
                 if current_file == '.txt':
-                    files.append(os.path.join(r, file))
-        return files
+                    csv_files.append(os.path.join(r, csv_file))
+        return csv_files
 
     # The function save layers from unzipped path into geopackage
     def save_layers_into_gpkg(self, files, path):
@@ -309,51 +308,61 @@ class GTFS:
                 cursor.execute("CREATE INDEX {0}_index ON shapes_point({0})".format(idx))
             cursor.close()
 
-    # The function delet unzipped folder
+    # The function delete unzipped folder
     def delete_folder(self,path_with_layers):
         shutil.rmtree(path_with_layers)
 
-    # The function joins the points from point layer "shapes" and adds information to the attribute table
+    # The function create polyline by joining the points from point layer "shapes" and adds information to the attribute table
     def connect_shapes(self,path):
         path_to_layer = path + "|layername=" + 'shapes_point'
         layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+        # load attribute table of shapes into variable features
         features = layer.getFeatures()
+        # selecting unique id of shapes from features
         IDList=[]
         for feat in features:
-            ids=feat['shape_id']
-            IDList.append(ids)
+            id=feat['shape_id']
+            IDList.append(id)
         uniqueId=list(set(IDList))
-        v_layer = QgsVectorLayer("LineString?crs=epsg:4326", "shapes_line", "memory")
-        pr = v_layer.dataProvider()
-        layer_provider=v_layer.dataProvider()
+        # create polyline layer
+        shape_layer = QgsVectorLayer("LineString?crs=epsg:4326", "shapes_line", "memory")
+        pr = shape_layer.dataProvider()
+        layer_provider=shape_layer.dataProvider()
+        # add new fields to polyline layer
         layer_provider.addAttributes([QgsField("shape_id",QVariant.String),QgsField("shape_dist_traveled",QVariant.Double)])
-        v_layer.updateFields()
-        for i in uniqueId:
-            expression = ('"shape_id" = \'%s%s\''%(i,''))
+        shape_layer.updateFields()
+        for Id in uniqueId:
+            # select rows from attribute table, where shape_id agree with current Id in for-cycle
+            expression = ('"shape_id" = \'%s%s\''%(Id,''))
             request = QgsFeatureRequest().setFilterExpression(expression)
-            line=QgsFeature()
             features_shape =layer.getFeatures(request)
+            # sorting attribute table of features_shape by field shape_pt_sequence
             sorted_f_shape=sorted(features_shape,key=lambda por:por['shape_pt_sequence'])
             PointList=[]
             DistList=[]
+            # add coordinates of shape points and traveled distance to the list
             for f in sorted_f_shape:
                 point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
                 dist=(f['shape_dist_traveled'])
                 PointList.append(point)
                 DistList.append(dist)
-            line.setGeometry(QgsGeometry.fromPolyline(PointList))
+            # create polyline from PointList
+            polyline=QgsFeature()
+            polyline.setGeometry(QgsGeometry.fromPolyline(PointList))
+            # find last distance of each shape
             for j in range(0, len(sorted_f_shape)): 
                 if j == (len(sorted_f_shape)-1):
-                    k=DistList[j]
-            line.setAttributes([i,k])
-            pr.addFeatures( [ line ] )
-        v_layer.updateExtents()
-        return(v_layer)
+                    Dist=DistList[j]
+            # adding features to attribute table of polyline
+            polyline.setAttributes([Id,Dist])
+            pr.addFeatures( [ polyline ] )
+        shape_layer.updateExtents()
+        return(shape_layer)
 
     # The function that restricts the input file to a zip file
     def load_file(self):
-        path = self.dockwidget.input_dir.filePath()
-        if not path.endswith('.zip'):
+        GTFS_folder = self.dockwidget.input_dir.filePath()
+        if not GTFS_folder.endswith('.zip'):
             self.iface.messageBar().pushMessage(
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
@@ -361,28 +370,30 @@ class GTFS:
             
             
         # Use of defined functions
-        name = os.path.splitext(os.path.basename(path))[0]
-        path_with_layers = os.path.join(os.path.dirname(path), name)
+        GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
+        GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
 
         # unzip input archive, get list of CVS files
-        files = self.unzip_file(path)
+        csv_files = self.unzip_file(GTFS_folder)
         self.iface.messageBar().pushMessage(
             "Warning", "It will take a while!", level=Qgis.Warning
         )
         self.iface.mainWindow().repaint()
         # load csv files, ..., save memory layers into target GeoPackage DB
-        names = self.save_layers_into_gpkg(files, path_with_layers)
+        names = self.save_layers_into_gpkg(csv_files, GTFS_path)
         # load layers from GPKG into map canvas
-        self.load_layers_from_gpkg(path_with_layers + '.gpkg', names)
+        self.load_layers_from_gpkg(GTFS_path + '.gpkg', names)
         # delete working directory with CSV files
-        self.delete_folder(path_with_layers)
-        
-        line=self.connect_shapes(path_with_layers + '.gpkg')
+        self.delete_folder(GTFS_path)
+        # create polyline by joining points
+        polyline=self.connect_shapes(GTFS_path + '.gpkg')
+        # create polyline file in GPKG
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
         options.driverName = 'GPKG' 
-        options.layerName = line.name()
-        QgsVectorFileWriter.writeAsVectorFormat(line,path_with_layers,options)
-        path_to_layer=path_with_layers + '.gpkg' + '|layername=' + line.name()
-        other_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
-        QgsProject.instance().addMapLayer(other_layer)
+        options.layerName = polyline.name()
+        QgsVectorFileWriter.writeAsVectorFormat(polyline,GTFS_path,options)
+        # add shapes_layer to the map canvas
+        path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
+        shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+        QgsProject.instance().addMapLayer(shapes_layer)
