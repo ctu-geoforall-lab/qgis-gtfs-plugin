@@ -221,7 +221,6 @@ class GTFS:
                 self._home = QSettings().value(self.browsePathSetting,'')
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
- #              self.dockwidget.soubory.setFilters(QgsMapLayerProxyModel.VectorLayer)
                 self.dockwidget.input_dir.setDialogTitle("Select GTFS")
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
@@ -265,28 +264,28 @@ class GTFS:
         return csv_files
 
     # The function save layers from unzipped path into geopackage
-    def save_layers_into_gpkg(self, files, path):
+    def save_layers_into_gpkg(self, csv_files, GTFS_path):
         layer_names = []
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = 'GPKG'
 
-        for file in files:
+        for csv in csv_files:
             # build URI
-            uri = 'file:///{}?delimiter=,'.format(file)
-            name = os.path.splitext(os.path.basename(file))[0]
-            if name == 'stops':
+            uri = 'file:///{}?delimiter=,'.format(csv)
+            csv_name = os.path.splitext(os.path.basename(csv))[0]
+            if csv_name == 'stops':
                 uri += '&xField=stop_lon&yField=stop_lat&crs=epsg:4326'
-            elif name == 'shapes':
+            elif csv_name == 'shapes':
                 uri += '&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'
-                name='shapes_point'
+                csv_name='shapes_point'
 
             # create CSV-based layer
-            layer_names.append(name)
-            layer = QgsVectorLayer(uri, name, 'delimitedtext')
+            layer_names.append(csv_name)
+            layer = QgsVectorLayer(uri, csv_name, 'delimitedtext')
 
             # save layer to GPKG
             options.layerName = layer.name().replace(' ', '_')
-            QgsVectorFileWriter.writeAsVectorFormat(layer, path, options)
+            QgsVectorFileWriter.writeAsVectorFormat(layer, GTFS_path, options)
             # append layers into single GPKG
             options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
 
@@ -294,28 +293,28 @@ class GTFS:
         return layer_names
     
     # The function load layers from geopackage to the layer tree
-    def load_layers_from_gpkg(self,path,names):
-        for name in names:
-            if name != 'shapes_point':
-                path_to_layer = path + "|layername=" + name
-                layer = QgsVectorLayer(path_to_layer, name, "ogr")
+    def load_layers_from_gpkg(self,GPKG_path,layer_names):
+        for layer_name in layer_names:
+            if layer_name != 'shapes_point':
+                path_to_layer = GPKG_path + "|layername=" + layer_name
+                layer = QgsVectorLayer(path_to_layer, layer_name, "ogr")
                 QgsProject.instance().addMapLayer(layer)
 
         # create index on on shape_id, shape_pt_sequence
-        with sqlite3.connect(path) as connection:
+        with sqlite3.connect(GPKG_path) as connection:
             cursor = connection.cursor()
             for idx in ('shape_id', 'shape_pt_sequence'):
                 cursor.execute("CREATE INDEX {0}_index ON shapes_point({0})".format(idx))
             cursor.close()
 
     # The function delete unzipped folder
-    def delete_folder(self,path_with_layers):
-        shutil.rmtree(path_with_layers)
+    def delete_folder(self,GTFS_path):
+        shutil.rmtree(GTFS_path)
 
     # The function create polyline by joining the points from point layer "shapes" and adds information to the attribute table
-    def connect_shapes(self,path):
-        path_to_layer = path + "|layername=" + 'shapes_point'
-        layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+    def connect_shapes(self,GPKG_path):
+        path_to_shapes = GPKG_path + "|layername=" + 'shapes_point'
+        layer = QgsVectorLayer(path_to_shapes, 'shapes', "ogr")
         # load attribute table of shapes into variable features
         features = layer.getFeatures()
         # selecting unique id of shapes from features
@@ -325,23 +324,23 @@ class GTFS:
             IDList.append(id)
         uniqueId=list(set(IDList))
         # create polyline layer
-        shape_layer = QgsVectorLayer("LineString?crs=epsg:4326", "shapes_line", "memory")
-        pr = shape_layer.dataProvider()
-        layer_provider=shape_layer.dataProvider()
+        shapes_layer = QgsVectorLayer("LineString?crs=epsg:4326", "shapes_line", "memory")
+        pr = shapes_layer.dataProvider()
+        layer_provider=shapes_layer.dataProvider()
         # add new fields to polyline layer
         layer_provider.addAttributes([QgsField("shape_id",QVariant.String),QgsField("shape_dist_traveled",QVariant.Double)])
-        shape_layer.updateFields()
+        shapes_layer.updateFields()
         for Id in uniqueId:
             # select rows from attribute table, where shape_id agree with current Id in for-cycle
             expression = ('"shape_id" = \'%s%s\''%(Id,''))
             request = QgsFeatureRequest().setFilterExpression(expression)
             features_shape =layer.getFeatures(request)
             # sorting attribute table of features_shape by field shape_pt_sequence
-            sorted_f_shape=sorted(features_shape,key=lambda por:por['shape_pt_sequence'])
+            sorted_f_shapes=sorted(features_shape,key=lambda por:por['shape_pt_sequence'])
             PointList=[]
             DistList=[]
             # add coordinates of shape points and traveled distance to the list
-            for f in sorted_f_shape:
+            for f in sorted_f_shapes:
                 point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
                 dist=(f['shape_dist_traveled'])
                 PointList.append(point)
@@ -350,14 +349,14 @@ class GTFS:
             polyline=QgsFeature()
             polyline.setGeometry(QgsGeometry.fromPolyline(PointList))
             # find last distance of each shape
-            for j in range(0, len(sorted_f_shape)): 
-                if j == (len(sorted_f_shape)-1):
+            for j in range(0, len(sorted_f_shapes)):
+                if j == (len(sorted_f_shapes)-1):
                     Dist=DistList[j]
             # adding features to attribute table of polyline
             polyline.setAttributes([Id,Dist])
             pr.addFeatures( [ polyline ] )
-        shape_layer.updateExtents()
-        return(shape_layer)
+        shapes_layer.updateExtents()
+        return(shapes_layer)
 
     # The function that restricts the input file to a zip file
     def load_file(self):
@@ -380,9 +379,9 @@ class GTFS:
         )
         self.iface.mainWindow().repaint()
         # load csv files, ..., save memory layers into target GeoPackage DB
-        names = self.save_layers_into_gpkg(csv_files, GTFS_path)
+        layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
         # load layers from GPKG into map canvas
-        self.load_layers_from_gpkg(GTFS_path + '.gpkg', names)
+        self.load_layers_from_gpkg(GTFS_path + '.gpkg', layer_names)
         # delete working directory with CSV files
         self.delete_folder(GTFS_path)
         # create polyline by joining points
