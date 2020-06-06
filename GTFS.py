@@ -442,5 +442,5 @@ class GTFS:
             cursor.execute("CREATE INDEX shape_id_short_index ON shapes_line(shape_id_short)".format())
             cursor.close()
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
-        self.set_line_colors(shapes_layer,GTFS_path + '.gpkg')
+        self.set_line_colors(shapes_layer)
         QgsProject.instance().addMapLayer(shapes_layer)
