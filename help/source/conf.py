@@ -40,8 +40,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'GTFS'
-copyright = u'2013, Skupina B'
+project = u'GTFS QGIS Plugin'
+copyright = u'2020, CTU GeoForAll Lab'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
