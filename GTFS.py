@@ -306,6 +306,11 @@ class GTFS:
             for idx in ('shape_id', 'shape_pt_sequence'):
                 cursor.execute("CREATE INDEX {0}_index ON shapes_point({0})".format(idx))
             cursor.close()
+            
+        with sqlite3.connect(GPKG_path) as connection:
+            cursor = connection.cursor()
+            cursor.execute("CREATE INDEX route_id_index ON routes(route_id)".format())
+            cursor.close()
 
     # The function delete unzipped folder
     def delete_folder(self,GTFS_path):
@@ -328,7 +333,7 @@ class GTFS:
         pr = shapes_layer.dataProvider()
         layer_provider=shapes_layer.dataProvider()
         # add new fields to polyline layer
-        layer_provider.addAttributes([QgsField("shape_id",QVariant.String),QgsField("shape_dist_traveled",QVariant.Double)])
+        layer_provider.addAttributes([QgsField("shape_id",QVariant.String), QgsField("shape_dist_traveled",QVariant.Double), QgsField("shape_id_short",QVariant.String)])
         shapes_layer.updateFields()
         for Id in uniqueId:
             # select rows from attribute table, where shape_id agree with current Id in for-cycle
@@ -345,18 +350,56 @@ class GTFS:
                 dist=(f['shape_dist_traveled'])
                 PointList.append(point)
                 DistList.append(dist)
+
             # create polyline from PointList
             polyline=QgsFeature()
             polyline.setGeometry(QgsGeometry.fromPolyline(PointList))
+            # Create shape id short, used for joining routes
+            shape_id_s=Id[0:Id.index('V')]
             # find last distance of each shape
             for j in range(0, len(sorted_f_shapes)):
                 if j == (len(sorted_f_shapes)-1):
                     Dist=DistList[j]
             # adding features to attribute table of polyline
-            polyline.setAttributes([Id,Dist])
+            polyline.setAttributes([Id,Dist,shape_id_s])
             pr.addFeatures( [ polyline ] )
         shapes_layer.updateExtents()
-        return(shapes_layer)
+
+        return shapes_layer
+
+    def set_line_colors(self, v_line):
+        # TODO: solve duplicated layers in layer tree
+        layer_routes = QgsProject.instance().mapLayersByName('routes')[0]
+
+        #---JOIN---
+        lineField = 'shape_id_short'
+        routesField = 'route_id'
+        joinObject = QgsVectorLayerJoinInfo()
+        joinObject.setJoinFieldName(routesField)
+        joinObject.setTargetFieldName(lineField)
+        joinObject.setJoinLayerId(layer_routes.id())
+        joinObject.setUsingMemoryCache(True)
+        joinObject.setJoinLayer(layer_routes)
+        v_line.addJoin(joinObject)
+        
+        #---COLORING---
+        target_field = 'routes_fid'
+        features_shape = v_line.getFeatures()
+        myRangeList = []
+        colors = {}
+        for f in features_shape:
+            r_fid = f['routes_fid']
+            if r_fid not in colors:
+                colors[r_fid] = (f['routes_route_color'], f['routes_route_short_name'])
+
+        for r_fid, r_item in colors.items():
+            symbol = QgsSymbol.defaultSymbol(v_line.geometryType())
+            symbol.setColor(QColor('#' + r_item[0]))
+            myRange = QgsRendererCategory(r_fid, symbol, r_item[1])
+            myRangeList.append(myRange)
+            myRenderer = QgsCategorizedSymbolRenderer(target_field, myRangeList)
+            v_line.setRenderer(myRenderer)
+        v_line.triggerRepaint()
 
     # The function that restricts the input file to a zip file
     def load_file(self):
@@ -394,5 +437,10 @@ class GTFS:
         QgsVectorFileWriter.writeAsVectorFormat(polyline,GTFS_path,options)
         # add shapes_layer to the map canvas
         path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
+        with sqlite3.connect(GTFS_path + '.gpkg') as connection:
+            cursor = connection.cursor()
+            cursor.execute("CREATE INDEX shape_id_short_index ON shapes_line(shape_id_short)".format())
+            cursor.close()
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+        self.set_line_colors(shapes_layer,GTFS_path + '.gpkg')
         QgsProject.instance().addMapLayer(shapes_layer)
