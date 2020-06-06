@@ -1,5 +1,5 @@
-Plugin for opening GTFS files.
-============================================
+QGIS Plugin for opening GTFS files
+===================================
 
 The plugin allows to insert a ZIP file that will be extracted into the geopackage with individual layers.
 The plugin was designed primarily for Prague Integrated Transport `PID <https://pid.cz/o-systemu/opendata/>`__
@@ -14,7 +14,9 @@ Today, the GTFS data format is used by thousands of public transport providers.
 GTFS is split into a static component that contains schedule, fare, and geographic transit information and a real-time
 component that contains arrival predictions, vehicle positions and service advisories.
 
-Contents:
+--------
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
