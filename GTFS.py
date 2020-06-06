@@ -294,11 +294,25 @@ class GTFS:
     
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
+        # Create groups
+        root=QgsProject.instance().layerTreeRoot()
+        group_gtfs = root.addGroup("gtfs_import")
+        g_trans = group_gtfs.addGroup("transfer")
+        g_time = group_gtfs.addGroup("time management")
+        g_service = group_gtfs.addGroup("service info")
         for layer_name in layer_names:
             if layer_name != 'shapes_point':
                 path_to_layer = GPKG_path + "|layername=" + layer_name
                 layer = QgsVectorLayer(path_to_layer, layer_name, "ogr")
-                QgsProject.instance().addMapLayer(layer)
+                QgsProject.instance().addMapLayer(layer, False)
+                if layer_name in ['trips','transfers','stops','routes', 'lines']:
+                    group_gtfs.insertChildNode(0,QgsLayerTreeLayer(layer))
+                if layer_name in ['levels','pathways']:
+                    g_trans.insertChildNode(0,QgsLayerTreeLayer(layer))
+                if layer_name in ['stop_times','calendar','calendar_dates']:
+                    g_time.insertChildNode(0,QgsLayerTreeLayer(layer))
+                if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes']:
+                    g_service.insertChildNode(0,QgsLayerTreeLayer(layer))
 
         # create index on on shape_id, shape_pt_sequence
         with sqlite3.connect(GPKG_path) as connection:
@@ -443,4 +457,7 @@ class GTFS:
             cursor.close()
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         self.set_line_colors(shapes_layer)
-        QgsProject.instance().addMapLayer(shapes_layer)
+        QgsProject.instance().addMapLayer(shapes_layer, False)
+        root=QgsProject.instance().layerTreeRoot()
+        group_gtfs = root.findGroup("gtfs_import")
+        group_gtfs.insertChildNode(0,QgsLayerTreeLayer(shapes_layer))
