@@ -295,8 +295,9 @@ class GTFS:
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
         # Create groups
+        GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
         root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.addGroup("gtfs_import")
+        group_gtfs = root.addGroup("gtfs import ("+GTFS_name+")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
@@ -309,9 +310,9 @@ class GTFS:
                     group_gtfs.insertChildNode(0,QgsLayerTreeLayer(layer))
                 if layer_name in ['levels','pathways']:
                     g_trans.insertChildNode(0,QgsLayerTreeLayer(layer))
-                if layer_name in ['stop_times','calendar','calendar_dates']:
+                if layer_name in ['stop_times','calendar','calendar_dates','frequencies']:
                     g_time.insertChildNode(0,QgsLayerTreeLayer(layer))
-                if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes']:
+                if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes','attributions','translations']:
                     g_service.insertChildNode(0,QgsLayerTreeLayer(layer))
 
         # create index on on shape_id, shape_pt_sequence
@@ -459,5 +460,5 @@ class GTFS:
         self.set_line_colors(shapes_layer)
         QgsProject.instance().addMapLayer(shapes_layer, False)
         root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup("gtfs_import")
+        group_gtfs = root.findGroup("gtfs import ("+GTFS_name+")")
         group_gtfs.insertChildNode(0,QgsLayerTreeLayer(shapes_layer))
