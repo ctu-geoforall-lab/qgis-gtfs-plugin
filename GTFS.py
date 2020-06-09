@@ -295,8 +295,9 @@ class GTFS:
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
         # Create groups
+        GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
         root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.addGroup("gtfs_import")
+        group_gtfs = root.addGroup("gtfs import ("+GTFS_name+")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
@@ -309,9 +310,9 @@ class GTFS:
                     group_gtfs.insertChildNode(0,QgsLayerTreeLayer(layer))
                 if layer_name in ['levels','pathways']:
                     g_trans.insertChildNode(0,QgsLayerTreeLayer(layer))
-                if layer_name in ['stop_times','calendar','calendar_dates']:
+                if layer_name in ['stop_times','calendar','calendar_dates','frequencies']:
                     g_time.insertChildNode(0,QgsLayerTreeLayer(layer))
-                if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes']:
+                if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes','attributions','translations']:
                     g_service.insertChildNode(0,QgsLayerTreeLayer(layer))
 
         # create index on on shape_id, shape_pt_sequence
@@ -334,6 +335,8 @@ class GTFS:
     def connect_shapes(self,GPKG_path):
         path_to_shapes = GPKG_path + "|layername=" + 'shapes_point'
         layer = QgsVectorLayer(path_to_shapes, 'shapes', "ogr")
+        #Index used to decide id field shape_dist_traveled exist 
+        idx=(layer.fields().indexFromName('shape_dist_traveled'))
         # load attribute table of shapes into variable features
         features = layer.getFeatures()
         # selecting unique id of shapes from features
@@ -361,24 +364,27 @@ class GTFS:
             # add coordinates of shape points and traveled distance to the list
             for f in sorted_f_shapes:
                 point=QgsPoint(f['shape_pt_lon'],f['shape_pt_lat'])
-                dist=(f['shape_dist_traveled'])
                 PointList.append(point)
-                DistList.append(dist)
-
+                if idx!=-1:
+                    dist=(f['shape_dist_traveled'])
+                    DistList.append(dist)
             # create polyline from PointList
             polyline=QgsFeature()
             polyline.setGeometry(QgsGeometry.fromPolyline(PointList))
-            # Create shape id short, used for joining routes
-            shape_id_s=Id[0:Id.index('V')]
-            # find last distance of each shape
-            for j in range(0, len(sorted_f_shapes)):
-                if j == (len(sorted_f_shapes)-1):
-                    Dist=DistList[j]
-            # adding features to attribute table of polyline
-            polyline.setAttributes([Id,Dist,shape_id_s])
-            pr.addFeatures( [ polyline ] )
+            if type(Id) == str and Id.find('V')!=-1:
+                # Create shape id short, used for joining routes
+                shape_id_s=Id[0:Id.index('V')]
+                # find last distance of each shape
+                for j in range(0, len(sorted_f_shapes)):
+                    if j == (len(sorted_f_shapes)-1):
+                        Dist=DistList[j]
+                # adding features to attribute table of polyline
+                polyline.setAttributes([Id,Dist,shape_id_s])
+                pr.addFeatures( [ polyline ] )
+            else:
+                polyline.setAttributes([Id])
+                pr.addFeatures( [ polyline ] )
         shapes_layer.updateExtents()
-
         return shapes_layer
 
     def set_line_colors(self, v_line):
@@ -423,8 +429,6 @@ class GTFS:
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
             return
-            
-            
         # Use of defined functions
         GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
@@ -456,8 +460,15 @@ class GTFS:
             cursor.execute("CREATE INDEX shape_id_short_index ON shapes_line(shape_id_short)".format())
             cursor.close()
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
-        self.set_line_colors(shapes_layer)
+        features_shape =shapes_layer.getFeatures()
+        for feat in features_shape:
+            if str(feat['shape_id_short']) == 'NULL':
+                possible_join=-1
+            else:
+                possible_join=1
+        if possible_join !=-1:
+            self.set_line_colors(shapes_layer)
         QgsProject.instance().addMapLayer(shapes_layer, False)
         root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup("gtfs_import")
+        group_gtfs = root.findGroup("gtfs import ("+GTFS_name+")")
         group_gtfs.insertChildNode(0,QgsLayerTreeLayer(shapes_layer))
