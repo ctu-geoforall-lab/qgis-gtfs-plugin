@@ -464,6 +464,7 @@ class GTFS:
         for feat in features_shape:
             if str(feat['shape_id_short']) == 'NULL':
                 possible_join=-1
+                self.iface.messageBar().pushMessage("Warning", "I can't set colours to shapes with your data!", level=Qgis.Warning)
             else:
                 possible_join=1
         if possible_join !=-1:
