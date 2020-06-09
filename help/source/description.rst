@@ -25,4 +25,8 @@ Visualization:
 .. image:: images/output.png
    :width: 800
 
-.. note:: The line colors match the PID definition and are added to the lines based on the line join with the colors defined in routes.txt.
+The line colors match the PID definition and are added to the lines based on the line join with the colors defined in routes.txt.
+A warning will appear if the colors cannot be loaded.
+
+.. image:: images/colors.png
+   :width: 300
