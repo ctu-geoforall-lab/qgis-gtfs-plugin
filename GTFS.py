@@ -291,6 +291,14 @@ class GTFS:
 
         # Return all layers from geopackage
         return layer_names
+        
+    # The function create index on assigned field
+    def index(self,path,fields,layer):
+        with sqlite3.connect(path) as connection:
+            cursor = connection.cursor()
+            for field in fields:
+                cursor.execute("CREATE INDEX {0}_index ON {1}({0})".format(field,layer))
+            cursor.close()
     
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
@@ -315,17 +323,9 @@ class GTFS:
                 if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes','attributions','translations']:
                     g_service.insertChildNode(0,QgsLayerTreeLayer(layer))
 
-        # create index on on shape_id, shape_pt_sequence
-        with sqlite3.connect(GPKG_path) as connection:
-            cursor = connection.cursor()
-            for idx in ('shape_id', 'shape_pt_sequence'):
-                cursor.execute("CREATE INDEX {0}_index ON shapes_point({0})".format(idx))
-            cursor.close()
-            
-        with sqlite3.connect(GPKG_path) as connection:
-            cursor = connection.cursor()
-            cursor.execute("CREATE INDEX route_id_index ON routes(route_id)".format())
-            cursor.close()
+        # create index on on route_id,shape_id, shape_pt_sequence
+        self.index(GPKG_path,['shape_id', 'shape_pt_sequence'],'shapes_point')
+        self.index(GPKG_path,['route_id'],'routes')
 
     # The function delete unzipped folder
     def delete_folder(self,GTFS_path):
@@ -436,8 +436,7 @@ class GTFS:
         # unzip input archive, get list of CVS files
         csv_files = self.unzip_file(GTFS_folder)
         self.iface.messageBar().pushMessage(
-            "Warning", "It will take a while!", level=Qgis.Warning
-        )
+            "Warning", "It will take a while!", level=Qgis.Warning)
         self.iface.mainWindow().repaint()
         # load csv files, ..., save memory layers into target GeoPackage DB
         layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
@@ -455,16 +454,14 @@ class GTFS:
         QgsVectorFileWriter.writeAsVectorFormat(polyline,GTFS_path,options)
         # add shapes_layer to the map canvas
         path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
-        with sqlite3.connect(GTFS_path + '.gpkg') as connection:
-            cursor = connection.cursor()
-            cursor.execute("CREATE INDEX shape_id_short_index ON shapes_line(shape_id_short)".format())
-            cursor.close()
+        # create index on on shape_id_short
+        self.index(GTFS_path + '.gpkg',['shape_id_short'],'shapes_line')
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         features_shape =shapes_layer.getFeatures()
         for feat in features_shape:
             if str(feat['shape_id_short']) == 'NULL':
                 possible_join=-1
-                self.iface.messageBar().pushMessage("Warning", "I can't set colours to shapes with your data!", level=Qgis.Warning)
+                self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!", level=Qgis.Warning)
             else:
                 possible_join=1
         if possible_join !=-1:
