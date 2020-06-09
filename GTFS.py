@@ -387,11 +387,11 @@ class GTFS:
         shapes_layer.updateExtents()
         return shapes_layer
 
-    def set_line_colors(self, v_line):
+    def set_line_colors(self, shapes_layer):
         # TODO: solve duplicated layers in layer tree
         layer_routes = QgsProject.instance().mapLayersByName('routes')[0]
 
-        #---JOIN---
+        # join
         lineField = 'shape_id_short'
         routesField = 'route_id'
         joinObject = QgsVectorLayerJoinInfo()
@@ -400,12 +400,12 @@ class GTFS:
         joinObject.setJoinLayerId(layer_routes.id())
         joinObject.setUsingMemoryCache(True)
         joinObject.setJoinLayer(layer_routes)
-        v_line.addJoin(joinObject)
+        shapes_layer.addJoin(joinObject)
         
-        #---COLORING---
+        # coloring
         target_field = 'routes_fid'
-        features_shape = v_line.getFeatures()
-        myRangeList = []
+        features_shape = shapes_layer.getFeatures()
+        myCategoryList = []
         colors = {}
         for f in features_shape:
             r_fid = f['routes_fid']
@@ -413,13 +413,13 @@ class GTFS:
                 colors[r_fid] = (f['routes_route_color'], f['routes_route_short_name'])
 
         for r_fid, r_item in colors.items():
-            symbol = QgsSymbol.defaultSymbol(v_line.geometryType())
+            symbol = QgsSymbol.defaultSymbol(shapes_layer.geometryType())
             symbol.setColor(QColor('#' + r_item[0]))
-            myRange = QgsRendererCategory(r_fid, symbol, r_item[1])
-            myRangeList.append(myRange)
-            myRenderer = QgsCategorizedSymbolRenderer(target_field, myRangeList)
-            v_line.setRenderer(myRenderer)
-        v_line.triggerRepaint()
+            myCategory = QgsRendererCategory(r_fid, symbol, r_item[1])
+            myCategoryList.append(myCategory)
+            myRenderer = QgsCategorizedSymbolRenderer(target_field, myCategoryList)
+            shapes_layer.setRenderer(myRenderer)
+        shapes_layer.triggerRepaint()
 
     # The function that restricts the input file to a zip file
     def load_file(self):
@@ -457,6 +457,7 @@ class GTFS:
         # create index on on shape_id_short
         self.index(GTFS_path + '.gpkg',['shape_id_short'],'shapes_line')
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+        #TODO: the way how to load other gtfs then PID
         features_shape =shapes_layer.getFeatures()
         for feat in features_shape:
             if str(feat['shape_id_short']) == 'NULL':
@@ -466,7 +467,9 @@ class GTFS:
                 possible_join=1
         if possible_join !=-1:
             self.set_line_colors(shapes_layer)
+        # add shapes_layer to canvas
         QgsProject.instance().addMapLayer(shapes_layer, False)
+        # insert shapes_layer to gtfs import group
         root=QgsProject.instance().layerTreeRoot()
         group_gtfs = root.findGroup("gtfs import ("+GTFS_name+")")
         group_gtfs.insertChildNode(0,QgsLayerTreeLayer(shapes_layer))
