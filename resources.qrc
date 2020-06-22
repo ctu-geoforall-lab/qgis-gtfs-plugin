@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/plugins/GTFS" >
-        <file>icon.png</file>
-    </qresource>
-</RCC>
