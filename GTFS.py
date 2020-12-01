@@ -22,7 +22,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QDialog
 # Initialize Qt resources from file resources.py
 from .resources import *
 
@@ -30,8 +30,9 @@ from .resources import *
 from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
+from PyQt5 import QtGui
 from PyQt5.QtGui import QColor, QPixmap
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import *
 from qgis.utils import iface
 from qgis.core import *
 from qgis.gui import *
@@ -42,7 +43,6 @@ from osgeo import ogr
 import shutil 
 import ctypes
 import sqlite3
-
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -224,8 +224,8 @@ class GTFS:
                 self.dockwidget.input_dir.setDialogTitle("Select GTFS")
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
-                self.dockwidget.submit.clicked.connect(self.load_file)
-
+                self.dockwidget.submit.clicked.connect(self.click)
+                
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
@@ -233,6 +233,82 @@ class GTFS:
             # TODO: fix to allow choice of dock location
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
+
+    def click(self):
+        path = self.dockwidget.input_dir.filePath()
+        self.progress_bar = ProgessBarDialog(path)
+        self.progress_bar.show()
+
+class HeavyTask(QgsTask):
+
+    def __init__(self,GTFS_folder):
+        QgsTask.__init__(self,GTFS_folder)
+        self.GTFS_folder = GTFS_folder
+
+    # The function that restricts the input file to a zip file
+    def run(self):
+        #GTFS_folder = self.dockwidget.input_dir.filePath()
+        if not self.GTFS_folder.endswith('.zip'):
+
+        #TODO: opravit iface na neco jineho
+            self.iface.messageBar().pushMessage(
+                "Error", "Please select a zipfile", level=Qgis.Critical
+            )
+            return
+        # Use of defined functions
+        GTFS_name = os.path.splitext(os.path.basename(self.GTFS_folder))[0]
+        GTFS_path = os.path.join(os.path.dirname(self.GTFS_folder), GTFS_name)
+
+        # unzip input archive, get list of CVS files
+        csv_files = self.unzip_file(self.GTFS_folder)
+
+        # self.iface.messageBar().pushMessage(
+        #     "Warning", "It will take a while!", level=Qgis.Warning)
+        # self.iface.mainWindow().repaint()
+
+        # load csv files, ..., save memory layers into target GeoPackage DB
+        layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
+
+        # load layers from GPKG into map canvas
+        self.load_layers_from_gpkg(GTFS_path + '.gpkg', layer_names)
+
+        # delete working directory with CSV files
+        self.delete_folder(GTFS_path)
+
+        # create polyline by joining points
+        polyline = self.connect_shapes(GTFS_path + '.gpkg')
+
+        # create polyline file in GPKG
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+        options.driverName = 'GPKG'
+        options.layerName = polyline.name()
+        QgsVectorFileWriter.writeAsVectorFormat(polyline, GTFS_path, options)
+
+        # add shapes_layer to the map canvas
+        path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
+        # create index on on shape_id_short
+        self.index(GTFS_path + '.gpkg', ['shape_id_short'], 'shapes_line')
+        shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
+        # TODO: the way how to load other gtfs then PID
+        features_shape = shapes_layer.getFeatures()
+        for feat in features_shape:
+            if str(feat['shape_id_short']) == 'NULL':
+                possible_join = -1
+                self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!",
+                                                    level=Qgis.Warning)
+            else:
+                possible_join = 1
+        if possible_join != -1:
+            self.set_line_colors(shapes_layer)
+        # add shapes_layer to canvas
+        QgsProject.instance().addMapLayer(shapes_layer, False)
+        # insert shapes_layer to gtfs import group
+        root = QgsProject.instance().layerTreeRoot()
+        group_gtfs = root.findGroup("gtfs import (" + GTFS_name + ")")
+        group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
+
+        return True
 
     # The function unzip file to new folder
     def unzip_file(self, GTFS_folder):
@@ -243,11 +319,12 @@ class GTFS:
         
         :return list: list of input CSV file to be loaded
         """
-        # Load file - function that reads a GTFS ZIP file. 
+        # Load file - function that reads a GTFS ZIP file.
         GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
         # Create a folder for files.
-        os.mkdir(GTFS_path)
+        if not os.path.exists(GTFS_path):
+            os.mkdir(GTFS_path)
         # Extracts files to path. 
         with ZipFile(GTFS_folder, 'r') as zip:
             # printing all the contents of the zip file 
@@ -287,7 +364,7 @@ class GTFS:
             options.layerName = layer.name().replace(' ', '_')
             QgsVectorFileWriter.writeAsVectorFormat(layer, GTFS_path, options)
             # append layers into single GPKG
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
+            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
 
         # Return all layers from geopackage
         return layer_names
@@ -299,10 +376,10 @@ class GTFS:
             for field in fields:
                 cursor.execute("CREATE INDEX {0}_index ON {1}({0})".format(field,layer))
             cursor.close()
-    
+
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
-        # Create groups
+        # # Create groups
         GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
         root=QgsProject.instance().layerTreeRoot()
         group_gtfs = root.addGroup("gtfs import ("+GTFS_name+")")
@@ -326,6 +403,7 @@ class GTFS:
         # create index on on route_id,shape_id, shape_pt_sequence
         self.index(GPKG_path,['shape_id', 'shape_pt_sequence'],'shapes_point')
         self.index(GPKG_path,['route_id'],'routes')
+
 
     # The function delete unzipped folder
     def delete_folder(self,GTFS_path):
@@ -385,6 +463,7 @@ class GTFS:
                 polyline.setAttributes([Id])
                 pr.addFeatures( [ polyline ] )
         shapes_layer.updateExtents()
+
         return shapes_layer
 
     def set_line_colors(self, shapes_layer):
@@ -421,55 +500,28 @@ class GTFS:
             shapes_layer.setRenderer(myRenderer)
         shapes_layer.triggerRepaint()
 
-    # The function that restricts the input file to a zip file
-    def load_file(self):
-        GTFS_folder = self.dockwidget.input_dir.filePath()
-        if not GTFS_folder.endswith('.zip'):
-            self.iface.messageBar().pushMessage(
-                "Error", "Please select a zipfile", level=Qgis.Critical
-            )
-            return
-        # Use of defined functions
-        GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
-        GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
 
-        # unzip input archive, get list of CVS files
-        csv_files = self.unzip_file(GTFS_folder)
-        self.iface.messageBar().pushMessage(
-            "Warning", "It will take a while!", level=Qgis.Warning)
-        self.iface.mainWindow().repaint()
-        # load csv files, ..., save memory layers into target GeoPackage DB
-        layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
-        # load layers from GPKG into map canvas
-        self.load_layers_from_gpkg(GTFS_path + '.gpkg', layer_names)
-        # delete working directory with CSV files
-        self.delete_folder(GTFS_path)
-        # create polyline by joining points
-        polyline=self.connect_shapes(GTFS_path + '.gpkg')
-        # create polyline file in GPKG
-        options = QgsVectorFileWriter.SaveVectorOptions()
-        options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer 
-        options.driverName = 'GPKG' 
-        options.layerName = polyline.name()
-        QgsVectorFileWriter.writeAsVectorFormat(polyline,GTFS_path,options)
-        # add shapes_layer to the map canvas
-        path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
-        # create index on on shape_id_short
-        self.index(GTFS_path + '.gpkg',['shape_id_short'],'shapes_line')
-        shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
-        #TODO: the way how to load other gtfs then PID
-        features_shape =shapes_layer.getFeatures()
-        for feat in features_shape:
-            if str(feat['shape_id_short']) == 'NULL':
-                possible_join=-1
-                self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!", level=Qgis.Warning)
-            else:
-                possible_join=1
-        if possible_join !=-1:
-            self.set_line_colors(shapes_layer)
-        # add shapes_layer to canvas
-        QgsProject.instance().addMapLayer(shapes_layer, False)
-        # insert shapes_layer to gtfs import group
-        root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup("gtfs import ("+GTFS_name+")")
-        group_gtfs.insertChildNode(0,QgsLayerTreeLayer(shapes_layer))
+class ProgessBarDialog(QDialog):
+    def __init__(self, GTFS_folder, parent=None):
+        QDialog.__init__(self, parent)
+
+        self.resize(410, 140)
+        self.lbl_info = QLabel('Processing ..\n'
+                               'When the process is complete, close the window!',self)
+        self.lbl_info.move(40, 25)
+        self.lbl_info.setAlignment(Qt.AlignVCenter)
+
+        self.newTask(GTFS_folder)
+
+        close_button = QPushButton('Close', self)
+        close_button.move(190, 100)
+        close_button.clicked.connect(self.close_window)
+
+
+    def newTask(self,GTFS_folder):
+        self.task = HeavyTask(GTFS_folder)
+        QgsApplication.taskManager().addTask(self.task)
+
+    def close_window(self):
+        self.close()
+
