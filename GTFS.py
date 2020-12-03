@@ -22,7 +22,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QDialog
+from qgis.PyQt.QtWidgets import QAction, QDialog, QProgressBar
 # Initialize Qt resources from file resources.py
 from .resources import *
 
@@ -30,7 +30,7 @@ from .resources import *
 from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
-from PyQt5 import QtGui
+from PyQt5 import QtGui, QtCore
 from PyQt5.QtGui import QColor, QPixmap
 from PyQt5.QtWidgets import *
 from qgis.utils import iface
@@ -40,9 +40,11 @@ from qgis.gui import *
 from zipfile import ZipFile
 from PyQt5.QtCore import QVariant
 from osgeo import ogr
-import shutil 
+import shutil
 import ctypes
 import sqlite3
+import time
+from datetime import datetime
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -225,7 +227,7 @@ class GTFS:
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
                 self.dockwidget.submit.clicked.connect(self.click)
-                
+
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
 
@@ -302,13 +304,13 @@ class HeavyTask(QgsTask):
         if possible_join != -1:
             self.set_line_colors(shapes_layer)
         # add shapes_layer to canvas
+        self.setProgress(100)
         QgsProject.instance().addMapLayer(shapes_layer, False)
         # insert shapes_layer to gtfs import group
         root = QgsProject.instance().layerTreeRoot()
         group_gtfs = root.findGroup("gtfs import (" + GTFS_name + ")")
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
 
-        return True
 
     # The function unzip file to new folder
     def unzip_file(self, GTFS_folder):
@@ -328,7 +330,7 @@ class HeavyTask(QgsTask):
         # Extracts files to path. 
         with ZipFile(GTFS_folder, 'r') as zip:
             # printing all the contents of the zip file 
-            zip.printdir() 
+            # zip.printdir()
             zip.extractall(GTFS_path)
         # Select text files only.
         csv_files = []
@@ -338,6 +340,7 @@ class HeavyTask(QgsTask):
                 current_file = os.path.splitext(os.path.basename(csv_file))[1]
                 if current_file == '.txt':
                     csv_files.append(os.path.join(r, csv_file))
+        self.setProgress(10)
         return csv_files
 
     # The function save layers from unzipped path into geopackage
@@ -365,10 +368,10 @@ class HeavyTask(QgsTask):
             QgsVectorFileWriter.writeAsVectorFormat(layer, GTFS_path, options)
             # append layers into single GPKG
             options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-
+        self.setProgress(60)
         # Return all layers from geopackage
         return layer_names
-        
+
     # The function create index on assigned field
     def index(self,path,fields,layer):
         with sqlite3.connect(path) as connection:
@@ -403,17 +406,19 @@ class HeavyTask(QgsTask):
         # create index on on route_id,shape_id, shape_pt_sequence
         self.index(GPKG_path,['shape_id', 'shape_pt_sequence'],'shapes_point')
         self.index(GPKG_path,['route_id'],'routes')
+        self.setProgress(70)
 
 
     # The function delete unzipped folder
     def delete_folder(self,GTFS_path):
         shutil.rmtree(GTFS_path)
+        self.setProgress(80)
 
     # The function create polyline by joining the points from point layer "shapes" and adds information to the attribute table
     def connect_shapes(self,GPKG_path):
         path_to_shapes = GPKG_path + "|layername=" + 'shapes_point'
         layer = QgsVectorLayer(path_to_shapes, 'shapes', "ogr")
-        #Index used to decide id field shape_dist_traveled exist 
+        #Index used to decide id field shape_dist_traveled exist
         idx=(layer.fields().indexFromName('shape_dist_traveled'))
         # load attribute table of shapes into variable features
         features = layer.getFeatures()
@@ -463,6 +468,7 @@ class HeavyTask(QgsTask):
                 polyline.setAttributes([Id])
                 pr.addFeatures( [ polyline ] )
         shapes_layer.updateExtents()
+        self.setProgress(85)
 
         return shapes_layer
 
@@ -480,7 +486,7 @@ class HeavyTask(QgsTask):
         joinObject.setUsingMemoryCache(True)
         joinObject.setJoinLayer(layer_routes)
         shapes_layer.addJoin(joinObject)
-        
+
         # coloring
         target_field = 'routes_fid'
         features_shape = shapes_layer.getFeatures()
@@ -499,29 +505,51 @@ class HeavyTask(QgsTask):
             myRenderer = QgsCategorizedSymbolRenderer(target_field, myCategoryList)
             shapes_layer.setRenderer(myRenderer)
         shapes_layer.triggerRepaint()
-
+        self.setProgress(95)
 
 class ProgessBarDialog(QDialog):
     def __init__(self, GTFS_folder, parent=None):
         QDialog.__init__(self, parent)
+        self.resize(310, 140)
+        self.setWindowTitle("Info")
 
-        self.resize(410, 140)
-        self.lbl_info = QLabel('Processing ..\n'
-                               'When the process is complete, close the window!',self)
-        self.lbl_info.move(40, 25)
-        self.lbl_info.setAlignment(Qt.AlignVCenter)
+        self.process_info = QLineEdit(self)
+        self.process_info.resize(230, 20)
+        self.process_info.move(40, 35)
+        self.process_info.setAlignment(Qt.AlignVCenter)
+
+        self.progBar = QProgressBar(self)
+        self.progBar.resize(230,20)
+        self.progBar.move(40, 70)
+        self.progBar.setAlignment(Qt.AlignVCenter)
 
         self.newTask(GTFS_folder)
 
-        close_button = QPushButton('Close', self)
-        close_button.move(190, 100)
-        close_button.clicked.connect(self.close_window)
-
-
     def newTask(self,GTFS_folder):
         self.task = HeavyTask(GTFS_folder)
+        self.task.progressChanged.connect(lambda: self.progBar.setValue(self.task.progress()))
+        self.task.progressChanged.connect(lambda: self.info(self.task.progress()))
         QgsApplication.taskManager().addTask(self.task)
 
-    def close_window(self):
-        self.close()
+    def info(self,value):
+        if value == 10:
+            self.process_info.setText("Unzipping file")
+           
+        elif value == 60:
+            self.process_info.setText("Saving layers into GeoPackage")
+          
+        elif value == 70:
+            self.process_info.setText("Loading layers from GeoPackage")
 
+        elif value == 80:
+            self.process_info.setText("Deleting unzipped folder")
+          
+        elif value == 85:
+            self.process_info.setText("Connecting shapes")
+
+        elif value == 95:
+            self.process_info.setText("Coloring of line layers")
+        
+        elif value == 100:
+            time.sleep(2)
+            self.close()
