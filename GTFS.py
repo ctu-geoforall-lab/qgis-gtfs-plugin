@@ -252,7 +252,7 @@ class HeavyTask(QgsTask):
         #GTFS_folder = self.dockwidget.input_dir.filePath()
         if not self.GTFS_folder.endswith('.zip'):
 
-        #TODO: opravit iface na neco jineho
+            #TODO: opravit iface na neco jineho
             self.iface.messageBar().pushMessage(
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
@@ -270,6 +270,9 @@ class HeavyTask(QgsTask):
 
         # load csv files, ..., save memory layers into target GeoPackage DB
         layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
+
+        # check required layers in GTFS
+        self.checking_required_layers(layer_names)
 
         # load layers from GPKG into map canvas
         self.load_layers_from_gpkg(GTFS_path + '.gpkg', layer_names)
@@ -408,6 +411,14 @@ class HeavyTask(QgsTask):
         self.index(GPKG_path,['route_id'],'routes')
         self.setProgress(70)
 
+    # The function checking required csv in GTFS
+    def checking_required_layers(self,layer_names):
+        required_layers = ['agency','routes','trips','stop_times','stops','calendar']
+        if set(required_layers).issubset(layer_names):
+            QgsMessageLog.logMessage('All required files are included!', 'GTFS load', Qgis.Success)
+        else: 
+            QgsMessageLog.logMessage('Some of the required files are missing!\n'
+                                     'There is a list of required files: {}'.format(required_layers), 'GTFS load', Qgis.Warning)
 
     # The function delete unzipped folder
     def delete_folder(self,GTFS_path):
