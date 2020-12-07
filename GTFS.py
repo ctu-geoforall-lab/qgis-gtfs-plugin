@@ -226,7 +226,7 @@ class GTFS:
                 self.dockwidget.input_dir.setDialogTitle("Select GTFS")
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
-                self.dockwidget.submit.clicked.connect(self.click)
+                self.dockwidget.submit.clicked.connect(self.progBar)
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
@@ -236,18 +236,43 @@ class GTFS:
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
 
-    def click(self):
-        progressMessageBar = iface.messageBar().createMessage("Loading...")
+    def progBar(self):
+        progressMessageBar = iface.messageBar().createMessage("")
+
+        self.process_info = QLabel()
+        progressMessageBar.layout().addWidget(self.process_info)
+
         progress = QProgressBar()
         progress.setMaximum(100)
-        progress.setAlignment(Qt.AlignLeft|Qt.AlignVCenter)
+        progress.setAlignment(Qt.AlignVCenter)
         progressMessageBar.layout().addWidget(progress)
+
         iface.messageBar().pushWidget(progressMessageBar, Qgis.Info)
 
         task = HeavyTask(self.dockwidget.input_dir.filePath())
         task.progressChanged.connect(lambda: progress.setValue(task.progress()))
+        task.progressChanged.connect(lambda: self.info(task.progress()))
 
         QgsApplication.taskManager().addTask(task)
+
+    def info(self, value):
+        if value == 10:
+            self.process_info.setText("Unzipping file... ")
+
+        elif value == 60:
+            self.process_info.setText("Saving layers into GeoPackage... ")
+
+        elif value == 70:
+            self.process_info.setText("Loading layers from GeoPackage... ")
+
+        elif value == 80:
+            self.process_info.setText("Deleting unzipped folder... ")
+
+        elif value == 85:
+            self.process_info.setText("Connecting shapes... ")
+
+        elif value == 95:
+            self.process_info.setText("Coloring of line layers... ")
 
 
 class HeavyTask(QgsTask):
@@ -264,7 +289,7 @@ class HeavyTask(QgsTask):
         #GTFS_folder = self.dockwidget.input_dir.filePath()
         if not self.GTFS_folder.endswith('.zip'):
 
-            #TODO: opravit iface na neco jineho
+            #TODO: repair it
             self.iface.messageBar().pushMessage(
                 "Error", "Please select a zipfile", level=Qgis.Critical
             )
@@ -275,7 +300,8 @@ class HeavyTask(QgsTask):
 
         # unzip input archive, get list of CVS files
         csv_files = self.unzip_file(self.GTFS_folder)
-
+        
+        # TODO: repair it
         # self.iface.messageBar().pushMessage(
         #     "Warning", "It will take a while!", level=Qgis.Warning)
         # self.iface.mainWindow().repaint()
