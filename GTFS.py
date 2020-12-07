@@ -246,12 +246,9 @@ class GTFS:
 
         task = HeavyTask(self.dockwidget.input_dir.filePath())
         task.progressChanged.connect(lambda: progress.setValue(task.progress()))
-        # task.progressChanged.connect(lambda: self.info(self.task.progress()))
 
         QgsApplication.taskManager().addTask(task)
 
-        # self.progress_bar = ProgessBarDialog(path)
-        # self.progress_bar.show()
 
 class HeavyTask(QgsTask):
 
@@ -532,50 +529,3 @@ class HeavyTask(QgsTask):
             shapes_layer.setRenderer(myRenderer)
         shapes_layer.triggerRepaint()
         self.setProgress(95)
-
-class ProgessBarDialog(QDialog):
-    def __init__(self, GTFS_folder, parent=None):
-        QDialog.__init__(self, parent)
-        self.resize(310, 140)
-        self.setWindowTitle("Info")
-
-        self.process_info = QLineEdit(self)
-        self.process_info.resize(230, 20)
-        self.process_info.move(40, 35)
-        self.process_info.setAlignment(Qt.AlignVCenter)
-
-        self.progBar = QProgressBar(self)
-        self.progBar.resize(230,20)
-        self.progBar.move(40, 70)
-        self.progBar.setAlignment(Qt.AlignVCenter)
-
-        self.newTask(GTFS_folder)
-
-    def newTask(self,GTFS_folder):
-        self.task = HeavyTask(GTFS_folder)
-        self.task.progressChanged.connect(lambda: self.progBar.setValue(self.task.progress()))
-        self.task.progressChanged.connect(lambda: self.info(self.task.progress()))
-        QgsApplication.taskManager().addTask(self.task)
-
-    def info(self,value):
-        if value == 10:
-            self.process_info.setText("Unzipping file")
-           
-        elif value == 60:
-            self.process_info.setText("Saving layers into GeoPackage")
-          
-        elif value == 70:
-            self.process_info.setText("Loading layers from GeoPackage")
-
-        elif value == 80:
-            self.process_info.setText("Deleting unzipped folder")
-          
-        elif value == 85:
-            self.process_info.setText("Connecting shapes")
-
-        elif value == 95:
-            self.process_info.setText("Coloring of line layers")
-        
-        elif value == 100:
-            time.sleep(2)
-            self.close()
