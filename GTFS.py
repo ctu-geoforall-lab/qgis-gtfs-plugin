@@ -237,15 +237,30 @@ class GTFS:
             self.dockwidget.show()
 
     def click(self):
-        path = self.dockwidget.input_dir.filePath()
-        self.progress_bar = ProgessBarDialog(path)
-        self.progress_bar.show()
+        progressMessageBar = iface.messageBar().createMessage("Loading...")
+        progress = QProgressBar()
+        progress.setMaximum(100)
+        progress.setAlignment(Qt.AlignLeft|Qt.AlignVCenter)
+        progressMessageBar.layout().addWidget(progress)
+        iface.messageBar().pushWidget(progressMessageBar, Qgis.Info)
+
+        task = HeavyTask(self.dockwidget.input_dir.filePath())
+        task.progressChanged.connect(lambda: progress.setValue(task.progress()))
+        # task.progressChanged.connect(lambda: self.info(self.task.progress()))
+
+        QgsApplication.taskManager().addTask(task)
+
+        # self.progress_bar = ProgessBarDialog(path)
+        # self.progress_bar.show()
 
 class HeavyTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
         self.GTFS_folder = GTFS_folder
+
+    def finished(self, result):
+        iface.messageBar().pushMessage('Task Complete', duration=3)
 
     # The function that restricts the input file to a zip file
     def run(self):
