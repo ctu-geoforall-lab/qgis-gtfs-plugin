@@ -300,7 +300,7 @@ class HeavyTask(QgsTask):
 
         # unzip input archive, get list of CVS files
         csv_files = self.unzip_file(self.GTFS_folder)
-        
+
         # TODO: repair it
         # self.iface.messageBar().pushMessage(
         #     "Warning", "It will take a while!", level=Qgis.Warning)
@@ -349,7 +349,11 @@ class HeavyTask(QgsTask):
         QgsProject.instance().addMapLayer(shapes_layer, False)
         # insert shapes_layer to gtfs import group
         root = QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup("gtfs import (" + GTFS_name + ")")
+        if len(self.groupName) != 0:
+            group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+        else:
+            group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ")")
+        #group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
 
 
@@ -426,7 +430,14 @@ class HeavyTask(QgsTask):
         # # Create groups
         GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
         root=QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.addGroup("gtfs import ("+GTFS_name+")")
+        self.groupName=[]
+        for groups in root.children():
+            if "GTFS import (" + GTFS_name + ")" in groups.name():
+                self.groupName.append(groups.name())
+        if len(self.groupName) != 0:
+            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+        else:
+            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
