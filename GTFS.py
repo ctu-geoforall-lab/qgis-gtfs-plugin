@@ -338,8 +338,8 @@ class HeavyTask(QgsTask):
         for feat in features_shape:
             if str(feat['shape_id_short']) == 'NULL':
                 possible_join = -1
-                self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!",
-                                                    level=Qgis.Warning)
+                # self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!",
+                #                                     level=Qgis.Warning)
             else:
                 possible_join = 1
         if possible_join != -1:
