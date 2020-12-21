@@ -249,7 +249,7 @@ class GTFS:
 
         iface.messageBar().pushWidget(progressMessageBar, Qgis.Info)
 
-        task = HeavyTask(self.dockwidget.input_dir.filePath())
+        task = LoadTask(self.dockwidget.input_dir.filePath())
         task.progressChanged.connect(lambda: progress.setValue(task.progress()))
         task.progressChanged.connect(lambda: self.info(task.progress()))
 
@@ -275,36 +275,29 @@ class GTFS:
             self.process_info.setText("Coloring of line layers... ")
 
 
-class HeavyTask(QgsTask):
+class LoadTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
         self.GTFS_folder = GTFS_folder
 
     def finished(self, result):
-        iface.messageBar().pushMessage('Task Complete', duration=3)
+        iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
 
     # The function that restricts the input file to a zip file
     def run(self):
-        #GTFS_folder = self.dockwidget.input_dir.filePath()
-        if not self.GTFS_folder.endswith('.zip'):
-
-            #TODO: repair it
-            self.iface.messageBar().pushMessage(
-                "Error", "Please select a zipfile", level=Qgis.Critical
-            )
-            return
+        # TODO: repair it
+        # if not self.GTFS_folder.endswith('.zip'):
+            # self.iface.messageBar().pushMessage(
+            #     "Error", "Please select a zipfile", level=Qgis.Critical
+            # )
+            # return
         # Use of defined functions
         GTFS_name = os.path.splitext(os.path.basename(self.GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(self.GTFS_folder), GTFS_name)
 
         # unzip input archive, get list of CVS files
         csv_files = self.unzip_file(self.GTFS_folder)
-
-        # TODO: repair it
-        # self.iface.messageBar().pushMessage(
-        #     "Warning", "It will take a while!", level=Qgis.Warning)
-        # self.iface.mainWindow().repaint()
 
         # load csv files, ..., save memory layers into target GeoPackage DB
         layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
@@ -338,12 +331,12 @@ class HeavyTask(QgsTask):
         for feat in features_shape:
             if str(feat['shape_id_short']) == 'NULL':
                 possible_join = -1
-                # self.iface.messageBar().pushMessage("Warning", "Colors from routes file were not uploaded!",
-                #                                     level=Qgis.Warning)
             else:
                 possible_join = 1
         if possible_join != -1:
             self.set_line_colors(shapes_layer)
+        else:
+            QgsMessageLog.logMessage('Colors from routes file were not uploaded!', 'GTFS load', Qgis.Warning)
         # add shapes_layer to canvas
         self.setProgress(100)
         QgsProject.instance().addMapLayer(shapes_layer, False)
@@ -353,7 +346,7 @@ class HeavyTask(QgsTask):
             group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
         else:
             group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ")")
-        #group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
 
 
@@ -375,7 +368,7 @@ class HeavyTask(QgsTask):
         # Extracts files to path. 
         with ZipFile(GTFS_folder, 'r') as zip:
             # printing all the contents of the zip file 
-            # zip.printdir()
+            zip.printdir()
             zip.extractall(GTFS_path)
         # Select text files only.
         csv_files = []
@@ -533,7 +526,6 @@ class HeavyTask(QgsTask):
         return shapes_layer
 
     def set_line_colors(self, shapes_layer):
-        # TODO: solve duplicated layers in layer tree
         layer_routes = QgsProject.instance().mapLayersByName('routes')[0]
 
         # join
