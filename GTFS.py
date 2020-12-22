@@ -226,7 +226,7 @@ class GTFS:
                 self.dockwidget.input_dir.setDialogTitle("Select GTFS")
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
-                self.dockwidget.submit.clicked.connect(self.progBar)
+                self.dockwidget.submit.clicked.connect(self.onSubmit)
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
@@ -236,7 +236,7 @@ class GTFS:
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
 
-    def progBar(self):
+    def onSubmit(self):
         progressMessageBar = iface.messageBar().createMessage("")
 
         self.process_info = QLabel()
