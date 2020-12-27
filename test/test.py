@@ -1,12 +1,15 @@
 import os.path
 import sys
 
-sys.path.insert(0, '..')
+#Change your path
+path = 'C:/Users/kouba/Documents/GitHub/qgis-gtfs-plugin/'
+
+sys.path.insert(0, path)
 from gtfs_reader import GtfsReader
 
 reader = GtfsReader(
-    os.path.join('..', 'sample_data', 'PID_GTFS.zip')
+    os.path.join(path, 'sample_data', 'PID_GTFS.zip')
 )
 
 # reader.write('test.shp')
-reader.write('test.gpkg')
+reader.write(path + 'test.gpkg')
