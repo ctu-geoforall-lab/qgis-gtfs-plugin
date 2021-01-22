@@ -1,4 +1,5 @@
 import os.path
+import shutil
 from pathlib import Path
 from zipfile import ZipFile
 from qgis.core import QgsVectorFileWriter, QgsVectorLayer, QgsMessageLog, Qgis
@@ -9,49 +10,53 @@ class GtfsError(Exception):
 class GtfsReader:
     def __init__(self, input_zip):
         self.input_zip = input_zip
+        self.dir_name = os.path.splitext(os.path.basename(self.input_zip))[0]
+        self.dir_path = os.path.join(os.path.dirname(self.input_zip), self.dir_name)
+
+    def __del__(self):
+        shutil.rmtree(self.dir_path)
 
     def write(self, output_file):
         ext = Path(output_file).suffix
-        if ext == '.gpkg':
-            self._write_gpkg(output_file)
-        else:
+        if ext != '.gpkg':
             raise GtfsError("Unsupported format extention {}".format(ext))
 
-    def _write_gpkg(self,output_file):
-        GTFS_name = os.path.splitext(os.path.basename(self.input_zip))[0]
-        GTFS_path = os.path.join(os.path.dirname(self.input_zip), GTFS_name)
-
         # 1. unzip_file
-        csv_files = self.unzip_file(self.input_zip,GTFS_path)
+        csv_files = self._unzip_file()
 
-        # 2. save_layers_into_gpkg
-        layer_names = self.save_layers_into_gpkg(csv_files,output_file)
+        # 2. store data into target data format
+        if ext == '.gpkg':
+            layer_names = self._write_gpkg(csv_files, output_file)
+        else:
+            pass # it shouldn't happen
 
         # 3. checking_required_layers
-        self.checking_required_layers(layer_names)
+        self._checking_required_layers(layer_names)
 
-    def unzip_file(self,input_zip,GTFS_path):
+        return layer_names
+    
+    def _unzip_file(self):
         # Load file - function that reads a GTFS ZIP file.
 
         # Create a folder for files.
-        if not os.path.exists(GTFS_path):
-            os.mkdir(GTFS_path)
+        if not os.path.exists(self.dir_path):
+            os.mkdir(self.dir_path)
         # Extracts files to path.
-        with ZipFile(input_zip, 'r') as zip:
+        with ZipFile(self.input_zip, 'r') as zip:
             # printing all the contents of the zip file
             zip.printdir()
-            zip.extractall(GTFS_path)
+            zip.extractall(self.dir_path)
         # Select text files only.
         csv_files = []
         # r=root, d=directories, f = files
-        for r, d, f in os.walk(GTFS_path):
+        for r, d, f in os.walk(self.dir_path):
             for csv_file in f:
                 current_file = os.path.splitext(os.path.basename(csv_file))[1]
                 if current_file == '.txt':
                     csv_files.append(os.path.join(r, csv_file))
         return csv_files
 
-    def save_layers_into_gpkg(self, csv_files, output_file):
+    def _write_gpkg(self, csv_files, output_file):
         layer_names = []
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = 'GPKG'
@@ -81,7 +86,7 @@ class GtfsReader:
         # Return all layers from geopackage
         return layer_names
 
-    def checking_required_layers(self, layer_names):
+    def _checking_required_layers(self, layer_names):
         required_layers = ['agency','routes','trips','stop_times','stops','calendar']
         if set(required_layers).issubset(layer_names):
             QgsMessageLog.logMessage('All required files are included!', 'GTFS load', Qgis.Success)

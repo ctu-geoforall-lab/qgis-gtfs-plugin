@@ -40,11 +40,11 @@ from qgis.gui import *
 from zipfile import ZipFile
 from PyQt5.QtCore import QVariant
 from osgeo import ogr
-import shutil
-import ctypes
 import sqlite3
 import time
 from datetime import datetime
+
+from .gtfs_reader import GtfsReader
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -292,39 +292,30 @@ class LoadTask(QgsTask):
             #     "Error", "Please select a zipfile", level=Qgis.Critical
             # )
             # return
-        # Use of defined functions
-        GTFS_name = os.path.splitext(os.path.basename(self.GTFS_folder))[0]
-        GTFS_path = os.path.join(os.path.dirname(self.GTFS_folder), GTFS_name)
 
-        # unzip input archive, get list of CVS files
-        csv_files = self.unzip_file(self.GTFS_folder)
+        reader = GtfsReader(self.GTFS_folder)
+        gpkg_path = reader.dir_path + '.gpkg'
 
-        # load csv files, ..., save memory layers into target GeoPackage DB
-        layer_names = self.save_layers_into_gpkg(csv_files, GTFS_path)
-
-        # check required layers in GTFS
-        self.checking_required_layers(layer_names)
+        # store layers into target GPKG
+        layer_names = reader.write(gpkg_path)
 
         # load layers from GPKG into map canvas
-        self.load_layers_from_gpkg(GTFS_path + '.gpkg', layer_names)
-
-        # delete working directory with CSV files
-        self.delete_folder(GTFS_path)
+        self.load_layers_from_gpkg(gpkg_path, layer_names)
 
         # create polyline by joining points
-        polyline = self.connect_shapes(GTFS_path + '.gpkg')
+        polyline = self.connect_shapes(gpkg_path)
 
         # create polyline file in GPKG
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
         options.driverName = 'GPKG'
         options.layerName = polyline.name()
-        QgsVectorFileWriter.writeAsVectorFormat(polyline, GTFS_path, options)
+        QgsVectorFileWriter.writeAsVectorFormat(polyline, gpkg_path, options)
 
         # add shapes_layer to the map canvas
-        path_to_layer = GTFS_path + '.gpkg' + '|layername=' + polyline.name()
+        path_to_layer = gpkg_path + '|layername=' + polyline.name()
         # create index on on shape_id_short
-        self.index(GTFS_path + '.gpkg', ['shape_id_short'], 'shapes_line')
+        self.index(gpkg_path, ['shape_id_short'], 'shapes_line')
         shapes_layer = QgsVectorLayer(path_to_layer, 'shapes', "ogr")
         # TODO: the way how to load other gtfs then PID
         features_shape = shapes_layer.getFeatures()
@@ -343,72 +334,11 @@ class LoadTask(QgsTask):
         # insert shapes_layer to gtfs import group
         root = QgsProject.instance().layerTreeRoot()
         if len(self.groupName) != 0:
-            group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+            group_gtfs = root.findGroup("GTFS import (" + reader.dir_name + ") " + str(len(self.groupName)))
         else:
-            group_gtfs = root.findGroup("GTFS import (" + GTFS_name + ")")
+            group_gtfs = root.findGroup("GTFS import (" + reader.dir_name + ")")
 
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
-
-
-    # The function unzip file to new folder
-    def unzip_file(self, GTFS_folder):
-        """
-        Unzip input archive.
-
-        :param str path: full path to input zip file
-        
-        :return list: list of input CSV file to be loaded
-        """
-        # Load file - function that reads a GTFS ZIP file.
-        GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
-        GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
-        # Create a folder for files.
-        if not os.path.exists(GTFS_path):
-            os.mkdir(GTFS_path)
-        # Extracts files to path. 
-        with ZipFile(GTFS_folder, 'r') as zip:
-            # printing all the contents of the zip file 
-            zip.printdir()
-            zip.extractall(GTFS_path)
-        # Select text files only.
-        csv_files = []
-        # r=root, d=directories, f = files
-        for r, d, f in os.walk(GTFS_path):
-            for csv_file in f:
-                current_file = os.path.splitext(os.path.basename(csv_file))[1]
-                if current_file == '.txt':
-                    csv_files.append(os.path.join(r, csv_file))
-        self.setProgress(10)
-        return csv_files
-
-    # The function save layers from unzipped path into geopackage
-    def save_layers_into_gpkg(self, csv_files, GTFS_path):
-        layer_names = []
-        options = QgsVectorFileWriter.SaveVectorOptions()
-        options.driverName = 'GPKG'
-
-        for csv in csv_files:
-            # build URI
-            uri = 'file:///{}?delimiter=,'.format(csv)
-            csv_name = os.path.splitext(os.path.basename(csv))[0]
-            if csv_name == 'stops':
-                uri += '&xField=stop_lon&yField=stop_lat&crs=epsg:4326'
-            elif csv_name == 'shapes':
-                uri += '&xField=shape_pt_lon&yField=shape_pt_lat&crs=epsg:4326'
-                csv_name='shapes_point'
-
-            # create CSV-based layer
-            layer_names.append(csv_name)
-            layer = QgsVectorLayer(uri, csv_name, 'delimitedtext')
-
-            # save layer to GPKG
-            options.layerName = layer.name().replace(' ', '_')
-            QgsVectorFileWriter.writeAsVectorFormat(layer, GTFS_path, options)
-            # append layers into single GPKG
-            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
-        self.setProgress(60)
-        # Return all layers from geopackage
-        return layer_names
 
     # The function create index on assigned field
     def index(self,path,fields,layer):
@@ -461,11 +391,6 @@ class LoadTask(QgsTask):
         else: 
             QgsMessageLog.logMessage('Some of the required files are missing!\n'
                                      'There is a list of required files: {}'.format(required_layers), 'GTFS load', Qgis.Warning)
-
-    # The function delete unzipped folder
-    def delete_folder(self,GTFS_path):
-        shutil.rmtree(GTFS_path)
-        self.setProgress(80)
 
     # The function create polyline by joining the points from point layer "shapes" and adds information to the attribute table
     def connect_shapes(self,GPKG_path):
