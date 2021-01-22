@@ -45,6 +45,7 @@ import time
 from datetime import datetime
 
 from .gtfs_reader import GtfsReader
+from .gtfs_reader.shapes import GtfsShapes
 
 class GTFS:
     """QGIS Plugin Implementation."""
