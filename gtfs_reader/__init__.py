@@ -72,7 +72,10 @@ class GtfsReader:
 
             # save layer to GPKG
             options.layerName = layer.name().replace(' ', '_')
-            QgsVectorFileWriter.writeAsVectorFormat(layer, output_file, options)
+            ret = QgsVectorFileWriter.writeAsVectorFormat(layer, output_file, options)
+            if ret != QgsVectorFileWriter.NoError:
+                raise GtfsError("Unable to create output GPKG file {} (details: {})".format(output_file, ret))
+
             # append layers into single GPKG
             options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
         # Return all layers from geopackage
