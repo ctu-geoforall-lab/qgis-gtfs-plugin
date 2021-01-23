@@ -274,22 +274,28 @@ class GTFS:
         elif value == 95:
             self.process_info.setText("Coloring of line layers... ")
 
+class ErrorType:
+    NoError = 0
+    FileNotFoundError = 1
+    BadZipFile = 2
+    PermissionError_Or_FileNotFoundError = 3
 
 class LoadTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
         self.GTFS_folder = GTFS_folder
-        self.errorValue = 0
+        self.errorValue = ErrorType.NoError
 
     def finished(self, result):
-        if self.errorValue == 1:
+        if self.errorValue == ErrorType.FileNotFoundError:
             iface.messageBar().pushMessage('Error! No such file or directory.', duration=3, level=Qgis.Critical)
-        elif self.errorValue == 2:
+        elif self.errorValue == ErrorType.BadZipFile:
             iface.messageBar().pushMessage('Error! File is not a zip file.', duration=3, level=Qgis.Critical)
+        elif self.errorValue == ErrorType.PermissionError_Or_FileNotFoundError:
+            iface.messageBar().pushMessage('Error! Wrong path to zip file.', duration=3, level=Qgis.Critical)
         else:
             iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
-
 
     # The function that restricts the input file to a zip file
     def run(self):
@@ -369,7 +375,7 @@ class LoadTask(QgsTask):
             if not os.path.exists(GTFS_path):
                     os.mkdir(GTFS_path)
         except FileNotFoundError:
-            self.errorValue = 1
+            self.errorValue = ErrorType.FileNotFoundError
 
         # Extracts files to path.
         try:
@@ -378,7 +384,9 @@ class LoadTask(QgsTask):
                 zip.printdir()
                 zip.extractall(GTFS_path)
         except BadZipFile:
-            self.errorValue = 2
+            self.errorValue = ErrorType.BadZipFile
+        except (FileNotFoundError,PermissionError):
+            self.errorValue = ErrorType.PermissionError_Or_FileNotFoundError
 
         # Select text files only.
         csv_files = []
@@ -437,10 +445,11 @@ class LoadTask(QgsTask):
         for groups in root.children():
             if "GTFS import (" + GTFS_name + ")" in groups.name():
                 self.groupName.append(groups.name())
-        if len(self.groupName) != 0:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
-        else:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
+        if len(layer_names) != 0:
+            if len(self.groupName) != 0:
+                group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+            else:
+                group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
