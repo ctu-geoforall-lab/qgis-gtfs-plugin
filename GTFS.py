@@ -280,7 +280,8 @@ class LoadTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
-        self.GTFS_folder = GTFS_folder
+        #self.GTFS_folder = GTFS_folder
+        self.reader = GtfsReader(GTFS_folder)
 
     def finished(self, result):
         iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
@@ -294,11 +295,10 @@ class LoadTask(QgsTask):
             # )
             # return
 
-        reader = GtfsReader(self.GTFS_folder)
-        gpkg_path = reader.dir_path + '.gpkg'
+        gpkg_path = str(self.reader.dir_path) + '.gpkg'
 
         # store layers into target GPKG
-        layer_names = reader.write(gpkg_path)
+        layer_names = self.reader.write(gpkg_path)
 
         # load layers from GPKG into map canvas
         self.load_layers_from_gpkg(gpkg_path, layer_names)
@@ -335,9 +335,9 @@ class LoadTask(QgsTask):
         # insert shapes_layer to gtfs import group
         root = QgsProject.instance().layerTreeRoot()
         if len(self.groupName) != 0:
-            group_gtfs = root.findGroup("GTFS import (" + reader.dir_name + ") " + str(len(self.groupName)))
+            group_gtfs = root.findGroup("GTFS import (" + self.reader.dir_name + ") " + str(len(self.groupName)))
         else:
-            group_gtfs = root.findGroup("GTFS import (" + reader.dir_name + ")")
+            group_gtfs = root.findGroup("GTFS import (" + self.reader.dir_name + ")")
 
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(shapes_layer))
 
@@ -352,16 +352,16 @@ class LoadTask(QgsTask):
     # The function load layers from geopackage to the layer tree
     def load_layers_from_gpkg(self,GPKG_path,layer_names):
         # # Create groups
-        GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
+        #GTFS_name=os.path.splitext(os.path.basename(GPKG_path))[0]
         root=QgsProject.instance().layerTreeRoot()
         self.groupName=[]
         for groups in root.children():
-            if "GTFS import (" + GTFS_name + ")" in groups.name():
+            if "GTFS import (" + self.reader.dir_name + ")" in groups.name():
                 self.groupName.append(groups.name())
         if len(self.groupName) != 0:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+            group_gtfs = root.addGroup("GTFS import (" + self.reader.dir_name + ") " + str(len(self.groupName)))
         else:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
+            group_gtfs = root.addGroup("GTFS import (" + self.reader.dir_name + ")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")

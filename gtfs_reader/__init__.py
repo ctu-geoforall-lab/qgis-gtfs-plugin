@@ -1,4 +1,4 @@
-import os.path
+import os
 import shutil
 from pathlib import Path
 from zipfile import ZipFile
@@ -10,8 +10,8 @@ class GtfsError(Exception):
 class GtfsReader:
     def __init__(self, input_zip):
         self.input_zip = input_zip
-        self.dir_name = os.path.splitext(os.path.basename(self.input_zip))[0]
-        self.dir_path = os.path.join(os.path.dirname(self.input_zip), self.dir_name)
+        self.dir_name = Path(Path(self.input_zip).name).stem
+        self.dir_path = Path.joinpath(Path(self.input_zip).parent,self.dir_name)
 
     def __del__(self):
         shutil.rmtree(self.dir_path)
@@ -39,8 +39,8 @@ class GtfsReader:
         # Load file - function that reads a GTFS ZIP file.
 
         # Create a folder for files.
-        if not os.path.exists(self.dir_path):
-            os.mkdir(self.dir_path)
+        if not Path(self.dir_path).exists():
+            Path(self.dir_path).mkdir()
         # Extracts files to path.
         with ZipFile(self.input_zip, 'r') as zip:
             # printing all the contents of the zip file
@@ -51,9 +51,9 @@ class GtfsReader:
         # r=root, d=directories, f = files
         for r, d, f in os.walk(self.dir_path):
             for csv_file in f:
-                current_file = os.path.splitext(os.path.basename(csv_file))[1]
+                current_file = Path(csv_file).suffix
                 if current_file == '.txt':
-                    csv_files.append(os.path.join(r, csv_file))
+                    csv_files.append(Path(r, csv_file).joinpath())
         return csv_files
 
     def _write_gpkg(self, csv_files, output_file):
@@ -64,7 +64,7 @@ class GtfsReader:
         for csv in csv_files:
             # build URI
             uri = 'file:///{}?delimiter=,'.format(csv)
-            csv_name = os.path.splitext(os.path.basename(csv))[0]
+            csv_name = Path(Path(csv).name).stem
             if csv_name == 'stops':
                 uri += '&xField=stop_lon&yField=stop_lat&crs=epsg:4326'
             elif csv_name == 'shapes':
@@ -78,8 +78,8 @@ class GtfsReader:
             # save layer to GPKG
             options.layerName = layer.name().replace(' ', '_')
             code, msg = QgsVectorFileWriter.writeAsVectorFormat(layer, output_file, options)
-            if code != QgsVectorFileWriter.NoError:
-                raise GtfsError("Unable to create output GPKG file {} (details: {}/{})".format(output_file, code, msg))
+            # if code != QgsVectorFileWriter.NoError:
+            #         raise GtfsError("Unable to create output GPKG file {} (details: {}/{})".format(output_file, code, msg))
 
             # append layers into single GPKG
             options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
