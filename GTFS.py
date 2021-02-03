@@ -370,18 +370,14 @@ class LoadTask(QgsTask):
         GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
 
-        # Create a folder for files.
-        try:
-            if not os.path.exists(GTFS_path):
-                    os.mkdir(GTFS_path)
-        except FileNotFoundError:
-            self.errorValue = ErrorType.FileNotFoundError
-
         # Extracts files to path.
         try:
             with ZipFile(GTFS_folder, 'r') as zip:
                 # printing all the contents of the zip file
                 zip.printdir()
+                # Create a folder for files.
+                if not os.path.exists(GTFS_path):
+                    os.mkdir(GTFS_path)
                 zip.extractall(GTFS_path)
         except BadZipFile:
             self.errorValue = ErrorType.BadZipFile
