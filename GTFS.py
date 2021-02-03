@@ -37,7 +37,7 @@ from qgis.utils import iface
 from qgis.core import *
 from qgis.gui import *
 
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 from PyQt5.QtCore import QVariant
 from osgeo import ogr
 import shutil
@@ -274,24 +274,31 @@ class GTFS:
         elif value == 95:
             self.process_info.setText("Coloring of line layers... ")
 
+class ErrorType:
+    NoError = 0
+    FileNotFoundError = 1
+    BadZipFile = 2
+    PermissionError_Or_FileNotFoundError = 3
 
 class LoadTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
         self.GTFS_folder = GTFS_folder
+        self.errorValue = ErrorType.NoError
 
     def finished(self, result):
-        iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
+        if self.errorValue == ErrorType.FileNotFoundError:
+            iface.messageBar().pushMessage('Error! No such file or directory.', duration=3, level=Qgis.Critical)
+        elif self.errorValue == ErrorType.BadZipFile:
+            iface.messageBar().pushMessage('Error! File is not a zip file.', duration=3, level=Qgis.Critical)
+        elif self.errorValue == ErrorType.PermissionError_Or_FileNotFoundError:
+            iface.messageBar().pushMessage('Error! Wrong path to zip file.', duration=3, level=Qgis.Critical)
+        else:
+            iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
 
     # The function that restricts the input file to a zip file
     def run(self):
-        # TODO: repair it
-        # if not self.GTFS_folder.endswith('.zip'):
-            # self.iface.messageBar().pushMessage(
-            #     "Error", "Please select a zipfile", level=Qgis.Critical
-            # )
-            # return
         # Use of defined functions
         GTFS_name = os.path.splitext(os.path.basename(self.GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(self.GTFS_folder), GTFS_name)
@@ -362,14 +369,21 @@ class LoadTask(QgsTask):
         # Load file - function that reads a GTFS ZIP file.
         GTFS_name = os.path.splitext(os.path.basename(GTFS_folder))[0]
         GTFS_path = os.path.join(os.path.dirname(GTFS_folder), GTFS_name)
-        # Create a folder for files.
-        if not os.path.exists(GTFS_path):
-            os.mkdir(GTFS_path)
-        # Extracts files to path. 
-        with ZipFile(GTFS_folder, 'r') as zip:
-            # printing all the contents of the zip file 
-            zip.printdir()
-            zip.extractall(GTFS_path)
+
+        # Extracts files to path.
+        try:
+            with ZipFile(GTFS_folder, 'r') as zip:
+                # printing all the contents of the zip file
+                zip.printdir()
+                # Create a folder for files.
+                if not os.path.exists(GTFS_path):
+                    os.mkdir(GTFS_path)
+                zip.extractall(GTFS_path)
+        except BadZipFile:
+            self.errorValue = ErrorType.BadZipFile
+        except (FileNotFoundError,PermissionError):
+            self.errorValue = ErrorType.PermissionError_Or_FileNotFoundError
+
         # Select text files only.
         csv_files = []
         # r=root, d=directories, f = files
@@ -427,10 +441,11 @@ class LoadTask(QgsTask):
         for groups in root.children():
             if "GTFS import (" + GTFS_name + ")" in groups.name():
                 self.groupName.append(groups.name())
-        if len(self.groupName) != 0:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
-        else:
-            group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
+        if len(layer_names) != 0:
+            if len(self.groupName) != 0:
+                group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ") " + str(len(self.groupName)))
+            else:
+                group_gtfs = root.addGroup("GTFS import (" + GTFS_name + ")")
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
