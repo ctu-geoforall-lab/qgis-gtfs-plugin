@@ -26,7 +26,7 @@ from qgis.PyQt.QtWidgets import QAction, QDialog, QProgressBar
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-# Import the code for the DockWidget
+# Import the code for the DockWidgetBadZipFile
 from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
@@ -35,7 +35,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import *
 from qgis.utils import iface
 from qgis.core import *
-from qgis.gui import *
+from qgis.gui import *BadZipFile
 
 from zipfile import ZipFile
 import sqlite3
@@ -66,7 +66,7 @@ class GTFS:
             'i18n',
             'GTFS_{}.qm'.format(locale))
 
-        if os.path.exists(locale_path):
+        if os.path.exists(locale_path):BadZipFile
             self.translator = QTranslator()
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
@@ -121,7 +121,7 @@ class GTFS:
         :param add_to_menu: Flag indicating whether the action should also
             be added to the menu. Defaults to True.
         :type add_to_menu: bool
-        :param add_to_toolbar: Flag indicating whether the action should also
+        :param add_to_toBadZipFileolbar: Flag indicating whether the action should also
             be added to the toolbar. Defaults to True.
         :type add_to_toolbar: bool
         :param status_tip: Optional text to show in a popup when mouse pointer
@@ -271,16 +271,27 @@ class GTFS:
         elif value == 95:
             self.process_info.setText("Coloring of line layers... ")
 
+class ErrorType:
+    NoError = 0
+    FileNotFoundError = 1
+    BadZipFile = 2
+    PermissionError_Or_FileNotFoundError = 3
 
 class LoadTask(QgsTask):
 
     def __init__(self,GTFS_folder):
         QgsTask.__init__(self,GTFS_folder)
-        #self.GTFS_folder = GTFS_folder
         self.reader = GtfsReader(GTFS_folder)
 
     def finished(self, result):
-        iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
+        if self.errorValue == ErrorType.FileNotFoundError:
+            iface.messageBar().pushMessage('Error! No such file or directory.', duration=3, level=Qgis.Critical)
+        elif self.errorValue == ErrorType.BadZipFile:
+            iface.messageBar().pushMessage('Error! File is not a zip file.', duration=3, level=Qgis.Critical)
+        elif self.errorValue == ErrorType.PermissionError_Or_FileNotFoundError:
+            iface.messageBar().pushMessage('Error! Wrong path to zip file.', duration=3, level=Qgis.Critical)
+        else:
+            iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
 
     # The function that restricts the input file to a zip file
     def run(self):
