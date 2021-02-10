@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import QAction, QDialog, QProgressBar
 # Initialize Qt resources from file resources.py
 from .resources import *
 
-# Import the code for the DockWidgetBadZipFile
+# Import the code for the DockWidget
 from .GTFS_dockwidget import GTFSDockWidget
 import os.path
 
@@ -36,10 +36,10 @@ from qgis.utils import iface
 from qgis.core import *
 from qgis.gui import *
 
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 import sqlite3
 
-from .gtfs_reader import GtfsReader
+from .gtfs_reader import GtfsReader, GtfsError
 from .gtfs_reader.shapes import GtfsShapes
 
 class GTFS:
@@ -65,7 +65,7 @@ class GTFS:
             'i18n',
             'GTFS_{}.qm'.format(locale))
 
-        if os.path.exists(locale_path):BadZipFile
+        if os.path.exists(locale_path):
             self.translator = QTranslator()
             self.translator.load(locale_path)
             QCoreApplication.installTranslator(self.translator)
@@ -120,7 +120,7 @@ class GTFS:
         :param add_to_menu: Flag indicating whether the action should also
             be added to the menu. Defaults to True.
         :type add_to_menu: bool
-        :param add_to_toBadZipFileolbar: Flag indicating whether the action should also
+        :param add_to_toolbar: Flag indicating whether the action should also
             be added to the toolbar. Defaults to True.
         :type add_to_toolbar: bool
         :param status_tip: Optional text to show in a popup when mouse pointer
@@ -270,25 +270,16 @@ class GTFS:
         elif value == 95:
             self.process_info.setText("Coloring of line layers... ")
 
-class ErrorType:
-    NoError = 0
-    FileNotFoundError = 1
-    BadZipFile = 2
-    PermissionError_Or_FileNotFoundError = 3
-
 class LoadTask(QgsTask):
 
-    def __init__(self,GTFS_folder):
-        QgsTask.__init__(self,GTFS_folder)
+    def __init__(self, GTFS_folder):
+        super().__init__(GTFS_folder)
         self.reader = GtfsReader(GTFS_folder)
+        self.error = None
 
     def finished(self, result):
-        if self.errorValue == ErrorType.FileNotFoundError:
-            iface.messageBar().pushMessage('Error! No such file or directory.', duration=3, level=Qgis.Critical)
-        elif self.errorValue == ErrorType.BadZipFile:
-            iface.messageBar().pushMessage('Error! File is not a zip file.', duration=3, level=Qgis.Critical)
-        elif self.errorValue == ErrorType.PermissionError_Or_FileNotFoundError:
-            iface.messageBar().pushMessage('Error! Wrong path to zip file.', duration=3, level=Qgis.Critical)
+        if self.error:
+            iface.messageBar().pushMessage('Error! {}'.format(self.error), duration=3, level=Qgis.Critical)
         else:
             iface.messageBar().pushMessage('Task completed! For more information, see Messages.', duration=3)
 
@@ -297,7 +288,10 @@ class LoadTask(QgsTask):
         gpkg_path = str(self.reader.dir_path) + '.gpkg'
 
         # store layers into target GPKG
-        layer_names = self.reader.write(gpkg_path)
+        try:
+            layer_names = self.reader.write(gpkg_path)
+        except GtfsError as e:
+            self.error = e
 
         # load layers from GPKG into map canvas
         self.load_layers_from_gpkg(gpkg_path, layer_names)

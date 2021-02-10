@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 from qgis.core import QgsVectorFileWriter, QgsVectorLayer, QgsMessageLog, Qgis
 
 class GtfsError(Exception):
@@ -22,7 +22,10 @@ class GtfsReader:
             raise GtfsError("Unsupported format extention {}".format(ext))
 
         # 1. unzip_file
-        csv_files = self._unzip_file()
+        try:
+            csv_files = self._unzip_file()
+        except (BadZipFile, FileNotFoundError, PermissionError, IsADirectoryError) as e:
+            raise GtfsError(e)
 
         # 2. store data into target data format
         if ext == '.gpkg':
@@ -38,13 +41,13 @@ class GtfsReader:
     def _unzip_file(self):
         # Load file - function that reads a GTFS ZIP file.
 
-        # Create a folder for files.
-        if not Path(self.dir_path).exists():
-            Path(self.dir_path).mkdir()
         # Extracts files to path.
         with ZipFile(self.input_zip, 'r') as zip:
             # printing all the contents of the zip file
-            zip.printdir()
+            # zip.printdir()
+            # Create a folder for files.
+            if not Path(self.dir_path).exists():
+                Path(self.dir_path).mkdir()
             zip.extractall(self.dir_path)
         # Select text files only.
         csv_files = []
