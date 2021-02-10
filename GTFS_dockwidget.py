@@ -8,8 +8,8 @@
                              -------------------
         begin                : 2020-03-26
         git sha              : $Format:%H$
-        copyright            : (C) 2020 by Skupina B
-        email                : martin.kouba@fsv.cvut.cz
+        copyright            : (C) 2020-2021 by CTU GeoForAll Lab
+        email                : martin.kouba97@gmail.com
  ***************************************************************************/
 
 /***************************************************************************

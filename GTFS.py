@@ -8,7 +8,7 @@
         begin                : 2020-03-26
         git sha              : $Format:%H$
         copyright            : (C) 2020-2021 by CTU GeoForAll Lab
-        email                : martin.kouba@fsv.cvut.cz
+        email                : martin.kouba97@gmail.com
  ***************************************************************************/
 /***************************************************************************
  *                                                                         *
@@ -165,7 +165,7 @@ class GTFS:
         icon_path = ':/plugins/GTFS/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'GTFS Load'),
+            text=self.tr(u'GTFS Loader'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -195,7 +195,7 @@ class GTFS:
 
         for action in self.actions:
             self.iface.removePluginMenu(
-                self.tr(u'&GTFS load'),
+                self.tr(u'&GTFS Loader'),
                 action)
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
@@ -215,7 +215,7 @@ class GTFS:
             #    first run of plugin
             #    removed on close (see self.onClosePlugin method)
             if self.dockwidget == None:
-                self.browsePathSetting="/plugins/2020-b-qgis-gtfs-plugin"
+                self.browsePathSetting="/plugins/qgis-gtfs-plugin"
                 self._home = QSettings().value(self.browsePathSetting,'')
                 # Create the dockwidget (after translation) and keep reference
                 self.dockwidget = GTFSDockWidget()
