@@ -3,17 +3,17 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=GTFS load
+name=GTFS loader
 qgisMinimumVersion=3.0
 description=Otevírám GTFS.
-version=0.1
-author=Skupina B
+version=1.0
+author=CTU GeoForAll Lab
 email=martin.kouba@fsv.cvut.cz
 
 about=Provide a brief description of the plugin and its purpose.
 
-tracker=http://bugs
-repository=http://repo
+tracker=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin/issues
+repository=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin
 # End of mandatory metadata
 
 # Recommended items:
@@ -25,11 +25,11 @@ hasProcessingProvider=no
 # Tags are comma separated with spaces allowed
 tags=python
 
-homepage=http://homepage
+homepage=https://ctu-geoforall-lab.github.io/qgis-gtfs-plugin/
 category=Plugins
 icon=icon.png
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
