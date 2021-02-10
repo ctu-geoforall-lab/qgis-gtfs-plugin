@@ -5,26 +5,25 @@ Authors
 * Martin Kouba
 * Adriana Brezničanová
 
-`155FGIS Free software GIS
-<http://geo.fsv.cvut.cz/gwiki/155FGIS_Free_software_GIS>`__
-Faculty of Civil Engineering, Czech Technical University in Prague, June 2020
+`GeoForAll Lab
+<https://geomatics.fsv.cvut.cz/research/geoforall/>`__
+Faculty of Civil Engineering, Czech Technical University in Prague, 2020-2021
 
 Project leader: Ing. Martin Landa,Ph.D.
 
 Source code
 ^^^^^^^^^^^
 
-https://github.com/ctu-fgis/2020-b-qgis-gtfs-plugin
+https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin
 
 
 Error reporting
 ^^^^^^^^^^^^^^^
 
-Report any errors to the `GitHub repository
-<https://github.com/ctu-fgis/2020-b-qgis-gtfs-plugin>`__.
+Report any errors to the `GitHub Issues
+<https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin/issues>`__.
 
 
-Further development of the GTFS load plugin
+Further development of the GTFS Loader plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-• Add progress bar
 • Enable color styles for other cities
