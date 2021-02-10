@@ -3,14 +3,14 @@
 # This file should be included when you package your plugin.# Mandatory items:
 
 [general]
-name=GTFS loader
+name=GTFS Loader
 qgisMinimumVersion=3.0
-description=Otevírám GTFS.
+description=Plugin for loading GTFS files 
 version=1.0
 author=CTU GeoForAll Lab
-email=martin.kouba@fsv.cvut.cz
+email=martin.kouba97@gmail.com
 
-about=Provide a brief description of the plugin and its purpose.
+about=This plugin allows to load a GTFS ZIP file, that will be extracted into the GeoPackage with individual tables. For stops and shapes it creates vector layers. There is built-in function for creating colorful shapes layer, so far for Prague integrated transport (PID).
 
 tracker=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin/issues
 repository=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python, gtfs, shapes, stops, gpkg
 
 homepage=https://ctu-geoforall-lab.github.io/qgis-gtfs-plugin/
 category=Plugins
