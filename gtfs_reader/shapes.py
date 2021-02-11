@@ -39,7 +39,7 @@ class GtfsShapes:
         if possible_join != -1:
             self._set_line_colors(self.shapes_layer)
         else:
-            QgsMessageLog.logMessage('Colors from routes file were not uploaded!', 'GTFS load', Qgis.Warning)
+            QgsMessageLog.logMessage('Colors from routes file were not uploaded!', 'GTFS Loader', Qgis.Warning)
 
         # add shapes_layer to canvas
         QgsProject.instance().addMapLayer(self.shapes_layer, False)

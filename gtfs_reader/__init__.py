@@ -92,7 +92,7 @@ class GtfsReader:
     def _checking_required_layers(self, layer_names):
         required_layers = ['agency','routes','trips','stop_times','stops','calendar']
         if set(required_layers).issubset(layer_names):
-            QgsMessageLog.logMessage('All required files are included!', 'GTFS load', Qgis.Success)
+            QgsMessageLog.logMessage('All required files are included!', 'GTFS Loader', Qgis.Success)
         else:
             QgsMessageLog.logMessage('Some of the required files are missing!\n'
-                                     'There is a list of required files: {}'.format(required_layers), 'GTFS load', Qgis.Warning)
+                                     'There is a list of required files: {}'.format(required_layers), 'GTFS Loader', Qgis.Warning)

@@ -9,7 +9,7 @@ Download data (ZIP file) from the `PID <https://pid.cz/o-systemu/opendata/>`__ p
 or from `TransitFeeds <https://transitfeeds.com/>`__.
 
 
-In **GTFS load** plugin window enter path to ZIP the file:
+In **GTFS Loader** plugin window enter path to ZIP the file:
 
 .. image:: images/select.png
    :width: 400

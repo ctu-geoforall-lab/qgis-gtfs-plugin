@@ -72,7 +72,7 @@ class GTFS:
 
         # Declare instance attributes
         self.actions = []
-        self.menu = self.tr(u'&GTFS load')
+        self.menu = self.tr(u'&GTFS Loader')
         # TODO: We are going to let the user set this up in a future iteration
         self.toolbar = self.iface.addToolBar(u'GTFS')
         self.toolbar.setObjectName(u'GTFS')
