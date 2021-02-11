@@ -4,7 +4,7 @@
 
 [general]
 name=GTFS Loader
-qgisMinimumVersion=3.0
+qgisMinimumVersion=3.10
 description=Plugin for loading GTFS files 
 version=1.0
 author=CTU GeoForAll Lab
