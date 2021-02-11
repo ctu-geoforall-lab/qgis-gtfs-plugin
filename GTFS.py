@@ -289,11 +289,13 @@ class LoadTask(QgsTask):
 
         # store layers into target GPKG
         try:
+            self.setProgress(10)
             layer_names = self.reader.write(gpkg_path)
         except GtfsError as e:
             self.error = e
 
         # load layers from GPKG into map canvas
+        self.setProgress(70)
         self.load_layers_from_gpkg(gpkg_path, layer_names)
 
         self.shapes = GtfsShapes(gpkg_path)
@@ -352,4 +354,3 @@ class LoadTask(QgsTask):
         # create index on on route_id,shape_id, shape_pt_sequence
         self.index(GPKG_path,['shape_id', 'shape_pt_sequence'],'shapes_point')
         self.index(GPKG_path,['route_id'],'routes')
-        self.setProgress(70)

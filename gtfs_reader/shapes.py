@@ -46,6 +46,7 @@ class GtfsShapes:
 
     # The function create polyline by joining the points from point layer "shapes" and adds information to the attribute table
     def _connect_shapes(self):
+        self.gtfs.setProgress(85)
         path_to_shapes = self.gpkg_path + "|layername=" + 'shapes_point'
         layer = QgsVectorLayer(path_to_shapes, 'shapes', "ogr")
 
@@ -108,11 +109,11 @@ class GtfsShapes:
                 polyline.setAttributes([Id])
                 pr.addFeatures([polyline])
         shapes_layer.updateExtents()
-        self.gtfs.setProgress(85)
 
         return shapes_layer
 
     def _set_line_colors(self, shapes_layer):
+        self.gtfs.setProgress(95)
         layer_routes = QgsProject.instance().mapLayersByName('routes')[0]
 
         # join
@@ -144,4 +145,3 @@ class GtfsShapes:
             myRenderer = QgsCategorizedSymbolRenderer(target_field, myCategoryList)
             shapes_layer.setRenderer(myRenderer)
         shapes_layer.triggerRepaint()
-        self.gtfs.setProgress(95)
