@@ -4,3 +4,4 @@ help/build
 *~
 *-shm
 *-wal
+.idea/

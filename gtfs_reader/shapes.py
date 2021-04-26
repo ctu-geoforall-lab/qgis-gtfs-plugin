@@ -8,9 +8,9 @@ import sqlite3
 from .. import GTFS
 
 class GtfsShapes:
-    def __init__(self,gpkg_path):
+    def __init__(self, gpkg_path, do_zones):
         self.gpkg_path = gpkg_path
-        self.gtfs = GTFS.LoadTask(gpkg_path)
+        self.gtfs = GTFS.LoadTask(gpkg_path, do_zones)
 
     def shapes_method(self):
         # create polyline by joining points

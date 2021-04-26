@@ -27,6 +27,7 @@ from .resources import *
 
 # Import the code for the DockWidget
 from .GTFS_dockwidget import GTFSDockWidget
+from .GTFS_selection_widget import GTFSSelectionWidget
 import os.path
 
 from PyQt5 import QtGui, QtCore
@@ -41,6 +42,7 @@ import sqlite3
 
 from .gtfs_reader import GtfsReader, GtfsError
 from .gtfs_reader.shapes import GtfsShapes
+from .gtfs_reader.zones import GtfsZones
 
 class GTFS:
     """QGIS Plugin Implementation."""
@@ -222,7 +224,7 @@ class GTFS:
                 self.dockwidget.input_dir.setDialogTitle("Select GTFS")
                 self.dockwidget.input_dir.setFilter("GTFS *.zip")
                 self.dockwidget.input_dir.setStorageMode(QgsFileWidget.GetFile)
-                self.dockwidget.submit.clicked.connect(self.onSubmit)
+                self.dockwidget.submit.clicked.connect(self.doCheck)
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
@@ -232,7 +234,26 @@ class GTFS:
             self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.dockwidget)
             self.dockwidget.show()
 
+    def doCheck(self):
+        self.choosing = GTFSSelectionWidget()
+
+        self.choosing.show()
+
+        self.do_zones = False
+        self.choosing.buttonBox.accepted.connect(self.onAccept)
+        self.choosing.buttonBox.rejected.connect(self.onReject)
+
+    def onAccept(self):
+        self.do_zones = True
+        self.onSubmit()
+
+    def onReject(self):
+        self.do_zones = False
+        self.onSubmit()
+
     def onSubmit(self):
+        self.choosing.close()
+
         progressMessageBar = iface.messageBar().createMessage("")
 
         self.process_info = QLabel()
@@ -245,7 +266,7 @@ class GTFS:
 
         iface.messageBar().pushWidget(progressMessageBar, Qgis.Info)
 
-        task = LoadTask(self.dockwidget.input_dir.filePath())
+        task = LoadTask(self.dockwidget.input_dir.filePath(), self.do_zones)
         task.progressChanged.connect(lambda: progress.setValue(task.progress()))
         task.progressChanged.connect(lambda: self.info(task.progress()))
 
@@ -272,9 +293,10 @@ class GTFS:
 
 class LoadTask(QgsTask):
 
-    def __init__(self, GTFS_folder):
+    def __init__(self, GTFS_folder, do_zones):
         super().__init__(GTFS_folder)
         self.reader = GtfsReader(GTFS_folder)
+        self.do_zones = do_zones
         self.error = None
 
     def finished(self, result):
@@ -298,7 +320,7 @@ class LoadTask(QgsTask):
         self.setProgress(70)
         self.load_layers_from_gpkg(gpkg_path, layer_names)
 
-        self.shapes = GtfsShapes(gpkg_path)
+        self.shapes = GtfsShapes(gpkg_path, self.do_zones)
 
         self.shapes.shapes_method()
 
@@ -312,6 +334,10 @@ class LoadTask(QgsTask):
             group_gtfs = root.findGroup("GTFS import (" + self.reader.dir_name + ")")
 
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(self.shapes.shapes_layer))
+
+        if self.do_zones is True:
+            voronoi = GtfsZones(gpkg_path)
+            voronoi.voronoi()
 
     # The function create index on assigned field
     def index(self,path,fields,layer):
@@ -337,6 +363,8 @@ class LoadTask(QgsTask):
         g_trans = group_gtfs.addGroup("transfer")
         g_time = group_gtfs.addGroup("time management")
         g_service = group_gtfs.addGroup("service info")
+        if self.do_zones is True:
+            g_zones = group_gtfs.addGroup("zones")
         for layer_name in layer_names:
             if layer_name != 'shapes_point':
                 path_to_layer = GPKG_path + "|layername=" + layer_name
@@ -350,6 +378,8 @@ class LoadTask(QgsTask):
                     g_time.insertChildNode(0,QgsLayerTreeLayer(layer))
                 if layer_name in ['agency','feed_info','route_sub_agencies', 'fare_rules','fare_attributes','attributions','translations']:
                     g_service.insertChildNode(0,QgsLayerTreeLayer(layer))
+                if layer_name in ['zones'] and self.do_zones is True:
+                    g_zones.insertChildNode(0, QgsLayerTreeLayer(layer))
 
         # create index on on route_id,shape_id, shape_pt_sequence
         self.index(GPKG_path,['shape_id', 'shape_pt_sequence'],'shapes_point')
