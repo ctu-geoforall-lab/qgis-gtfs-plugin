@@ -224,6 +224,7 @@ class GtfsZones:
 
             list_zones_smoothed.append(self.gpkg_path + '|layername=zone' + i + '_concaveHull_smoothed')
             list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zone' + i + '_smooth')
+        list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zoneP0B_smooth')
         list_zones_diff = []
         for i in range(len(list_zones_smoothed) - 1):
             self._difference(list_zones_smoothed[i + 1], list_zones_smoothed[i],'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i) + '_smoothed_diff\" (geom)')
@@ -258,7 +259,7 @@ class GtfsZones:
         layer_stops.selectByExpression(expression)
         self._saveIntoGpkg(layer_stops, 'stops_border_zone' + zone_id)
 
-        self._border_zones(zone_id)
+        numpoints = self._border_zones(zone_id)
 
         # extract vertices (polygon to nodes)
         processing.run('qgis:extractvertices', {
@@ -289,7 +290,7 @@ class GtfsZones:
         })
 
         self._smoothgeometry('zone' + zone_id + '_concaveHull_simplified', 'zone' + zone_id + '_concaveHull_smoothed')
-        self._smoothgeometry('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanTwo', 'border_zone' + zone_id +'_smooth')
+        self._smoothgeometry('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'border_zone' + zone_id +'_smooth')
 
         layer = self._createVectorLayer('zone' + zone_id + '_concaveHull_smoothed')
 
@@ -336,9 +337,26 @@ class GtfsZones:
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '\" (geom)'
         })
 
+        numpoints = '5'
         layer_border_voronoi_dissolve_singleparts_counted_zone = self._createVectorLayer('border_voronoi_dissolve_singleparts_counted_zone' + zone_id)
-        layer_border_voronoi_dissolve_singleparts_counted_zone.selectByExpression('NUMPOINTS > 2')
-        self._saveIntoGpkg(layer_border_voronoi_dissolve_singleparts_counted_zone, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanTwo')
+        layer_border_voronoi_dissolve_singleparts_counted_zone.selectByExpression('NUMPOINTS > ' + numpoints)
+        self._saveIntoGpkg(layer_border_voronoi_dissolve_singleparts_counted_zone, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
+
+        layer = self._createVectorLayer('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
+
+        layer.startEditing()
+        zone_id_idx = layer.fields().lookupField('zone_id')
+        for feat in layer.getFeatures():
+            if zone_id == 'P0B':
+                layer.changeAttributeValue(feat.id(), zone_id_idx, 'P0B,1')
+            else:
+                layer.changeAttributeValue(feat.id(), zone_id_idx, zone_id + ',' + str(int(zone_id) + 1))
+        layer.commitChanges()
+        layer.updateExtents()
+
+        self._saveIntoGpkg(layer, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
+
+        return numpoints
 
     def _set_zone_colors(self, zones_layer):
         '''
@@ -349,6 +367,7 @@ class GtfsZones:
         # zone: #color
         colors = {
             'P0B': '#c02026',
+            'P0B,1': '#c02026',
             '1': '#d65e27',
             '1,2': '#d65e27',
             '2': '#e58027',
