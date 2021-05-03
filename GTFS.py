@@ -370,8 +370,16 @@ class LoadTask(QgsTask):
                 path_to_layer = GPKG_path + "|layername=" + layer_name
                 layer = QgsVectorLayer(path_to_layer, layer_name, "ogr")
                 QgsProject.instance().addMapLayer(layer, False)
-                if layer_name in ['trips','transfers','stops','routes', 'lines']:
-                    group_gtfs.insertChildNode(0,QgsLayerTreeLayer(layer))
+                if layer_name in ['trips', 'transfers', 'stops', 'routes', 'lines']:
+                    group_gtfs.insertChildNode(0, QgsLayerTreeLayer(layer))
+
+        for layer_name in layer_names:
+            if layer_name != 'shapes_point':
+                path_to_layer = GPKG_path + "|layername=" + layer_name
+                layer = QgsVectorLayer(path_to_layer, layer_name, "ogr")
+                QgsProject.instance().addMapLayer(layer, False)
+                # if layer_name in ['trips','transfers','stops','routes', 'lines']:
+                #     group_gtfs.insertChildNode(0,QgsLayerTreeLayer(layer))
                 if layer_name in ['levels','pathways']:
                     g_trans.insertChildNode(0,QgsLayerTreeLayer(layer))
                 if layer_name in ['stop_times','calendar','calendar_dates','frequencies']:
