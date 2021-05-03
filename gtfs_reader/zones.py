@@ -51,9 +51,32 @@ class GtfsZones:
         })
 
         self.zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        self.zones1to6 = ['1', '2', '3', '4', '5', '6']
+        self.zones7to9 = ['7', '8', '9']
         list_zones = []
 
-        for i in self.zones:
+        for i in self.zones1to6:
+            # select stops by zone_id
+            _layer_stops = QgsVectorLayer(layer_stops, "stops", "ogr")
+            _layer_stops.selectByExpression("\"zone_id\" <= " + i + "and \"zone_id\" != '-' and \"location_type\" = 0")
+
+            self._saveIntoGpkg(_layer_stops, 'stops_zone' + i)
+
+            layer_zoneI = self._createVectorLayer('stops_zone' + i)
+
+            # select voronoi polygons intersect with stops
+            self._selectbylocation(layer_voronoi, layer_zoneI)
+
+            self._saveIntoGpkg(layer_voronoi, 'zone' + i + '_voronoi')
+
+            layer_zoneI_voronoi = self._createVectorLayer('zone' + i + '_voronoi')
+
+            # combine features into new features
+            self._dissolve(layer_zoneI_voronoi, 'zone' + i + '_voronoi_dissolve')
+
+            list_zones.append(self.gpkg_path + '|layername=zone' + i + '_voronoi_dissolve')
+
+        for i in self.zones7to9:
             # select stops by zone_id
             _layer_stops = QgsVectorLayer(layer_stops, "stops", "ogr")
             _layer_stops.selectByExpression("\"zone_id\" = " + i + "and \"location_type\" = 0")
@@ -203,24 +226,9 @@ class GtfsZones:
             list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zone' + i + '_smooth')
         list_zones_diff = []
         for i in range(len(list_zones_smoothed) - 1):
-            self._difference(list_zones_smoothed[i+1], list_zones_smoothed[i], 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i+1) + '_smoothed_diff\" (geom)')
+            self._difference(list_zones_smoothed[i + 1], list_zones_smoothed[i],'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i) + '_smoothed_diff\" (geom)')
 
-            diff = self._createVectorLayer('zone' + str(i+1) + '_smoothed_diff')
-
-            d = QgsDistanceArea()
-            d.setEllipsoid('WGS84')
-
-            diff.startEditing()
-            feats = []
-            for feat in diff.getFeatures():
-                geom = feat.geometry()
-                if d.measureArea(geom) / 1e6 < 50:
-                    feats.append(feat.id())
-                diff.deleteFeatures(feats)
-            diff.commitChanges()
-            diff.updateExtents()
-
-            list_zones_diff.append(self.gpkg_path + '|layername=zone' + str(i+1) + '_smoothed_diff')
+            list_zones_diff.append(self.gpkg_path + '|layername=zone' + str(i) + '_smoothed_diff')
         list_zones_diff.append(list_zones_smoothed[0])
         list_zones_diff.append(self.gpkg_path + '|layername=zoneP0B_concaveHull_smoothed')
 
@@ -285,11 +293,20 @@ class GtfsZones:
 
         layer = self._createVectorLayer('zone' + zone_id + '_concaveHull_smoothed')
 
+        d = QgsDistanceArea()
+        d.setEllipsoid('WGS84')
+
         layer.startEditing()
         zone_id_idx = layer.fields().lookupField('zone_id')
+        feats = []
         for feat in layer.getFeatures():
             layer.changeAttributeValue(feat.id(), zone_id_idx, zone_id)
+            geom = feat.geometry()
+            if d.measureArea(geom) / 1e6 < 50:
+                feats.append(feat.id())
+            layer.deleteFeatures(feats)
         layer.commitChanges()
+        layer.updateExtents()
 
         self._saveIntoGpkg(layer,'zone' + zone_id + '_concaveHull_smoothed')
 
