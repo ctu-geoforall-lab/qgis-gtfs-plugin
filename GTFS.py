@@ -276,20 +276,14 @@ class GTFS:
         if value == 10:
             self.process_info.setText("Unzipping file... ")
 
-        elif value == 60:
-            self.process_info.setText("Saving layers into GeoPackage... ")
-
-        elif value == 70:
+        elif value == 65:
             self.process_info.setText("Loading layers from GeoPackage... ")
 
-        elif value == 80:
-            self.process_info.setText("Deleting unzipped folder... ")
-
-        elif value == 85:
+        elif value == 70:
             self.process_info.setText("Connecting shapes... ")
 
-        elif value == 95:
-            self.process_info.setText("Coloring of line layers... ")
+        elif value == 80:
+            self.process_info.setText("Creating tariff zones... ")
 
 class LoadTask(QgsTask):
 
@@ -317,14 +311,12 @@ class LoadTask(QgsTask):
             self.error = e
 
         # load layers from GPKG into map canvas
-        self.setProgress(70)
+        self.setProgress(65)
         self.load_layers_from_gpkg(gpkg_path, layer_names)
 
         self.shapes = GtfsShapes(gpkg_path, self.do_zones)
-
+        self.setProgress(70)
         self.shapes.shapes_method()
-
-        self.setProgress(100)
 
         # insert shapes_layer to gtfs import group
         root = QgsProject.instance().layerTreeRoot()
@@ -335,9 +327,12 @@ class LoadTask(QgsTask):
 
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(self.shapes.shapes_layer))
 
+        self.setProgress(80)
         if self.do_zones is True:
             voronoi = GtfsZones(gpkg_path)
             voronoi.voronoi()
+
+        self.setProgress(100)
 
     # The function create index on assigned field
     def index(self,path,fields,layer):
