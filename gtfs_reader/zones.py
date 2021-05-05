@@ -13,8 +13,8 @@ class GtfsZones:
         self._voronoi()
 
         expressionZones = "', '".join(map(str, self.zones))
-        self._smooth('P0B', "zone_id not in ('" + expressionZones + "') and (zone_id like '%" + self.zones[0] + "%'"
-                            " or zone_id like '%" + self.zones[1] + "%' or zone_id like '%" + self.zones[2] + "%')")
+        self._smooth('P0B', "zone_id NOT IN ('" + expressionZones + "') AND (zone_id LIKE '%" + self.zones[0] + "%'"
+                            " OR zone_id LIKE '%" + self.zones[1] + "%' OR zone_id LIKE '%" + self.zones[2] + "%')")
 
         list_zones_smoothed = []
         list_border_zones_smoothed = []
@@ -28,11 +28,12 @@ class GtfsZones:
 
         self._colecting_zones(list_zones_smoothed, list_border_zones_smoothed)
 
-        root = QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup('zones')
         smooth_layer = QgsProject.instance().addMapLayer(QgsVectorLayer(self.gpkg_path + '|layername=zones_borders_smoothed_collected',
                                                                         'zones_borders_smoothed_collected', 'ogr'), False)
         self._set_zone_colors(smooth_layer)
+
+        root = QgsProject.instance().layerTreeRoot()
+        group_gtfs = root.findGroup('zones')
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(smooth_layer))
 
     def _voronoi(self):
@@ -46,7 +47,7 @@ class GtfsZones:
         })
 
         expressionZones = "', '".join(map(str, self.zones[:3]))
-        layer_stops.selectByExpression("\"zone_id\" in ('" + expressionZones + "') and \"location_type\" = 0")
+        layer_stops.selectByExpression("\"zone_id\" IN ('" + expressionZones + "') AND \"location_type\" = 0")
         self._saveIntoGpkg(layer_stops,'layer_stops_selected')
 
         layer_stops_selected = QgsVectorLayer(self.gpkg_path + '|layername=layer_stops_selected', 'layer_stops_selected', 'ogr')
@@ -85,9 +86,9 @@ class GtfsZones:
             _layer_stops = QgsVectorLayer(self.gpkg_path + '|layername=stops', "stops", "ogr")
 
             if int(i) <= 6:
-                _layer_stops.selectByExpression("\"zone_id\" <= " + i + "and \"zone_id\" != '-' and \"location_type\" = 0")
+                _layer_stops.selectByExpression("\"zone_id\" <= " + i + "AND \"zone_id\" != '-' AND \"location_type\" = 0")
             else:
-                _layer_stops.selectByExpression("\"zone_id\" = " + i + "and \"location_type\" = 0")
+                _layer_stops.selectByExpression("\"zone_id\" = " + i + "AND \"location_type\" = 0")
 
             self._saveIntoGpkg(_layer_stops, 'stops_zone' + i)
 
@@ -127,7 +128,7 @@ class GtfsZones:
         try:
             processing.run("native:spatialiteexecutesql", {
                 'DATABASE': '{0}|layername={1}'.format(self.gpkg_path, layer_name),
-                'SQL': 'drop table {0}'.format(layer_name)
+                'SQL': 'DROP TABLE {0}'.format(layer_name)
             })
         except IndexError:
             layer_name = None
