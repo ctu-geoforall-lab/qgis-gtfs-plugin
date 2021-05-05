@@ -7,17 +7,18 @@ from PyQt5.QtGui import QColor
 class GtfsZones:
     def __init__(self, gpkg_path):
         self.gpkg_path = gpkg_path
+        self.zones = ['P', '0', 'B', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
     def zone_process(self):
         self._voronoi()
 
-        expressionP0B = "zone_id not in ('P', 'B', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9') " \
-                        "and (zone_id like '%B%' or zone_id like '%P%' or zone_id like '%0%')"
-        self._smooth('P0B', expressionP0B)
+        expressionZones = "', '".join(map(str, self.zones))
+        self._smooth('P0B', "zone_id not in ('" + expressionZones + "') and (zone_id like '%" + self.zones[0] + "%'"
+                            " or zone_id like '%" + self.zones[1] + "%' or zone_id like '%" + self.zones[2] + "%')")
 
         list_zones_smoothed = []
         list_border_zones_smoothed = []
-        for i in self.zones:
+        for i in self.zones[3:]:
 
             self._smooth(i,"zone_id LIKE '" + i + "," + str(int(i)+1) + "'")
 
@@ -44,7 +45,8 @@ class GtfsZones:
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"voronoi\" (geom)'
         })
 
-        layer_stops.selectByExpression("\"zone_id\" in ('P','0','B') and \"location_type\" = 0")
+        expressionZones = "', '".join(map(str, self.zones[:3]))
+        layer_stops.selectByExpression("\"zone_id\" in ('" + expressionZones + "') and \"location_type\" = 0")
         self._saveIntoGpkg(layer_stops,'layer_stops_selected')
 
         layer_stops_selected = QgsVectorLayer(self.gpkg_path + '|layername=layer_stops_selected', 'layer_stops_selected', 'ogr')
@@ -77,10 +79,8 @@ class GtfsZones:
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zoneP0B_without_holes\" (geom)'
         })
 
-        self.zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
         list_zones = []
-
-        for i in self.zones:
+        for i in self.zones[3:]:
             # select stops by zone_id
             _layer_stops = QgsVectorLayer(self.gpkg_path + '|layername=stops', "stops", "ogr")
 
