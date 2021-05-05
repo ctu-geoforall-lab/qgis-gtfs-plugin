@@ -329,8 +329,8 @@ class LoadTask(QgsTask):
 
         self.setProgress(80)
         if self.do_zones is True:
-            voronoi = GtfsZones(gpkg_path)
-            voronoi.voronoi()
+            zones = GtfsZones(gpkg_path)
+            zones.zone_process()
 
         self.setProgress(100)
 

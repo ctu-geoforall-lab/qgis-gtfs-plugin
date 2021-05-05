@@ -8,17 +8,43 @@ class GtfsZones:
     def __init__(self, gpkg_path):
         self.gpkg_path = gpkg_path
 
-    def voronoi(self):
-        layer_stops = self.gpkg_path + '|layername=stops'
+    def zone_process(self):
+        self._voronoi()
+
+        expressionP0B = "zone_id not in ('P', 'B', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9') " \
+                        "and (zone_id like '%B%' or zone_id like '%P%' or zone_id like '%0%')"
+        self._smooth('P0B', expressionP0B)
+
+        list_zones_smoothed = []
+        list_border_zones_smoothed = []
+        for i in self.zones:
+
+            self._smooth(i,"zone_id LIKE '" + i + "," + str(int(i)+1) + "'")
+
+            list_zones_smoothed.append(self.gpkg_path + '|layername=zone' + i + '_concaveHull_smoothed')
+            list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zone' + i + '_smooth')
+        list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zoneP0B_smooth')
+
+        self._colecting_zones(list_zones_smoothed, list_border_zones_smoothed)
+
+        root = QgsProject.instance().layerTreeRoot()
+        group_gtfs = root.findGroup('zones')
+        smooth_layer = QgsProject.instance().addMapLayer(self._createVectorLayer('zones_borders_smoothed_collected'), False)
+        self._set_zone_colors(smooth_layer)
+        group_gtfs.insertChildNode(0, QgsLayerTreeLayer(smooth_layer))
+
+    def _voronoi(self):
         # creates voronoi polygons
+
+        layer_stops = QgsVectorLayer(self.gpkg_path + '|layername=stops', "stops", "ogr")
+
         processing.run("qgis:voronoipolygons", {
             'INPUT': layer_stops,
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"voronoi\" (geom)'
         })
 
-        _layer_stops = QgsVectorLayer(layer_stops, "stops", "ogr")
-        _layer_stops.selectByExpression("\"zone_id\" in ('P','0','B') and \"location_type\" = 0")
-        self._saveIntoGpkg(_layer_stops,'layer_stops_selected')
+        layer_stops.selectByExpression("\"zone_id\" in ('P','0','B') and \"location_type\" = 0")
+        self._saveIntoGpkg(layer_stops,'layer_stops_selected')
 
         layer_stops_selected = self._createVectorLayer('layer_stops_selected')
         processing.run("native:deleteduplicategeometries", {
@@ -51,35 +77,16 @@ class GtfsZones:
         })
 
         self.zones = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-        self.zones1to6 = ['1', '2', '3', '4', '5', '6']
-        self.zones7to9 = ['7', '8', '9']
         list_zones = []
 
-        for i in self.zones1to6:
+        for i in self.zones:
             # select stops by zone_id
-            _layer_stops = QgsVectorLayer(layer_stops, "stops", "ogr")
-            _layer_stops.selectByExpression("\"zone_id\" <= " + i + "and \"zone_id\" != '-' and \"location_type\" = 0")
+            _layer_stops = QgsVectorLayer(self.gpkg_path + '|layername=stops', "stops", "ogr")
 
-            self._saveIntoGpkg(_layer_stops, 'stops_zone' + i)
-
-            layer_zoneI = self._createVectorLayer('stops_zone' + i)
-
-            # select voronoi polygons intersect with stops
-            self._selectbylocation(layer_voronoi, layer_zoneI)
-
-            self._saveIntoGpkg(layer_voronoi, 'zone' + i + '_voronoi')
-
-            layer_zoneI_voronoi = self._createVectorLayer('zone' + i + '_voronoi')
-
-            # combine features into new features
-            self._dissolve(layer_zoneI_voronoi, 'zone' + i + '_voronoi_dissolve')
-
-            list_zones.append(self.gpkg_path + '|layername=zone' + i + '_voronoi_dissolve')
-
-        for i in self.zones7to9:
-            # select stops by zone_id
-            _layer_stops = QgsVectorLayer(layer_stops, "stops", "ogr")
-            _layer_stops.selectByExpression("\"zone_id\" = " + i + "and \"location_type\" = 0")
+            if int(i) <= 6:
+                _layer_stops.selectByExpression("\"zone_id\" <= " + i + "and \"zone_id\" != '-' and \"location_type\" = 0")
+            else:
+                _layer_stops.selectByExpression("\"zone_id\" = " + i + "and \"location_type\" = 0")
 
             self._saveIntoGpkg(_layer_stops, 'stops_zone' + i)
 
@@ -108,21 +115,9 @@ class GtfsZones:
         self._deleteLayer('zoneP0B_singleparts')
         self._deleteLayer('zoneP0B_max')
 
-        # merge layers of all zones
-        self._mergevectorlayers(list_zones, 'zones')
-
-        # insert zones layer to gtfs import group
-        zones_layer = QgsProject.instance().addMapLayer(self._createVectorLayer('zones'), False)
-
-        root = QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup('zones')
-        group_gtfs.insertChildNode(0, QgsLayerTreeLayer(zones_layer))
-
         # self._deleteLayer('zoneP0B_voronoi_dissolve')
         # for i in zones:
         #     self._deleteLayer('zone' + i + '_voronoi_dissolve')
-
-        self._smooth()
 
     def _createVectorLayer(self, layer_name):
         '''
@@ -207,50 +202,7 @@ class GtfsZones:
             'OUTPUT': output
         })
 
-    def _smooth(self):
-        '''
-        Extract Vertices >>> Merge vector layers >>> Concave hull (alpha shapes) >>> Simplify >>> Smooth
-        '''
-
-        expressionP0B = "zone_id not in ('P', 'B', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9') " \
-                        "and (zone_id like '%B%' or zone_id like '%P%' or zone_id like '%0%')"
-        self._smooth_process('P0B', expressionP0B)
-
-        list_zones_smoothed = []
-        list_border_zones_smoothed = []
-        for i in self.zones:
-
-            self._smooth_process(i,"zone_id LIKE '" + i + "," + str(int(i)+1) + "'")
-
-            list_zones_smoothed.append(self.gpkg_path + '|layername=zone' + i + '_concaveHull_smoothed')
-            list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zone' + i + '_smooth')
-        list_border_zones_smoothed.append(self.gpkg_path + '|layername=border_zoneP0B_smooth')
-        list_zones_diff = []
-        for i in range(len(list_zones_smoothed) - 1):
-            self._difference(list_zones_smoothed[i + 1], list_zones_smoothed[i],'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i) + '_smoothed_diff\" (geom)')
-
-            list_zones_diff.append(self.gpkg_path + '|layername=zone' + str(i) + '_smoothed_diff')
-        list_zones_diff.append(list_zones_smoothed[0])
-        list_zones_diff.append(self.gpkg_path + '|layername=zoneP0B_concaveHull_smoothed')
-
-        self._mergevectorlayers(list_zones_diff, 'zones_smoothed')
-        self._mergevectorlayers(list_border_zones_smoothed, 'border_zones_smoothed')
-
-        self._collect(self.gpkg_path + '|layername=border_zones_smoothed', ['zone_id'], 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"border_zones_smoothed_collected\" (geom)')
-        self._collect(self.gpkg_path + '|layername=zones_smoothed', ['zone_id'], 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zones_smoothed_collected\" (geom)')
-
-        self._difference(self.gpkg_path + '|layername=zones_smoothed_collected', self.gpkg_path + '|layername=border_zones_smoothed_collected', 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zones_smoothed_collected_diff\" (geom)')
-
-        self._mergevectorlayers([self.gpkg_path + '|layername=zones_smoothed_collected_diff', self.gpkg_path + '|layername=border_zones_smoothed_collected'], 'zones_borders_smoothed_collected')
-
-        root = QgsProject.instance().layerTreeRoot()
-        group_gtfs = root.findGroup('zones')
-        smooth_layer = QgsProject.instance().addMapLayer(self._createVectorLayer('zones_borders_smoothed_collected'), False)
-        self._set_zone_colors(smooth_layer)
-        group_gtfs.insertChildNode(0, QgsLayerTreeLayer(smooth_layer))
-
-
-    def _smooth_process(self, zone_id, expression):
+    def _smooth(self, zone_id, expression):
         '''
         select border stops >>> Extract vertices >>> Concave Hull >>> Simplify Geometries >>> Smooth
         '''
@@ -357,6 +309,26 @@ class GtfsZones:
         self._saveIntoGpkg(layer, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
 
         return numpoints
+
+    def _colecting_zones(self, list_zones_smoothed, list_border_zones_smoothed):
+        list_zones_diff = []
+        for i in range(len(list_zones_smoothed) - 1):
+            self._difference(list_zones_smoothed[i + 1], list_zones_smoothed[i],'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i) + '_smoothed_diff\" (geom)')
+
+            list_zones_diff.append(self.gpkg_path + '|layername=zone' + str(i) + '_smoothed_diff')
+        list_zones_diff.append(list_zones_smoothed[0])
+        list_zones_diff.append(self.gpkg_path + '|layername=zoneP0B_concaveHull_smoothed')
+
+        self._mergevectorlayers(list_zones_diff, 'zones_smoothed')
+        self._mergevectorlayers(list_border_zones_smoothed, 'border_zones_smoothed')
+
+        self._collect(self.gpkg_path + '|layername=border_zones_smoothed', ['zone_id'], 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"border_zones_smoothed_collected\" (geom)')
+        self._collect(self.gpkg_path + '|layername=zones_smoothed', ['zone_id'], 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zones_smoothed_collected\" (geom)')
+
+        self._difference(self.gpkg_path + '|layername=zones_smoothed_collected', self.gpkg_path + '|layername=border_zones_smoothed_collected', 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zones_smoothed_collected_diff\" (geom)')
+
+        self._mergevectorlayers([self.gpkg_path + '|layername=zones_smoothed_collected_diff', self.gpkg_path + '|layername=border_zones_smoothed_collected'], 'zones_borders_smoothed_collected')
+
 
     def _set_zone_colors(self, zones_layer):
         '''
