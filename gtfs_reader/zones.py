@@ -29,7 +29,8 @@ class GtfsZones:
 
         root = QgsProject.instance().layerTreeRoot()
         group_gtfs = root.findGroup('zones')
-        smooth_layer = QgsProject.instance().addMapLayer(self._createVectorLayer('zones_borders_smoothed_collected'), False)
+        smooth_layer = QgsProject.instance().addMapLayer(QgsVectorLayer(self.gpkg_path + '|layername=zones_borders_smoothed_collected',
+                                                                        'zones_borders_smoothed_collected', 'ogr'), False)
         self._set_zone_colors(smooth_layer)
         group_gtfs.insertChildNode(0, QgsLayerTreeLayer(smooth_layer))
 
@@ -46,31 +47,31 @@ class GtfsZones:
         layer_stops.selectByExpression("\"zone_id\" in ('P','0','B') and \"location_type\" = 0")
         self._saveIntoGpkg(layer_stops,'layer_stops_selected')
 
-        layer_stops_selected = self._createVectorLayer('layer_stops_selected')
+        layer_stops_selected = QgsVectorLayer(self.gpkg_path + '|layername=layer_stops_selected', 'layer_stops_selected', 'ogr')
         processing.run("native:deleteduplicategeometries", {
             'INPUT': layer_stops_selected,
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"stops_zoneP0B\" (geom)'
         })
 
-        layer_voronoi = self._createVectorLayer('voronoi')
-        layer_zoneP0B = self._createVectorLayer('stops_zoneP0B')
+        layer_voronoi = QgsVectorLayer(self.gpkg_path + '|layername=voronoi', 'voronoi', 'ogr')
+        layer_zoneP0B = QgsVectorLayer(self.gpkg_path + '|layername=stops_zoneP0B', 'stops_zoneP0B', 'ogr')
         # select voronoi polygons intersect with stops
         self._selectbylocation(layer_voronoi, layer_zoneP0B)
 
         self._saveIntoGpkg(layer_voronoi, 'zoneP0B_voronoi')
 
-        layer_zoneP0B_voronoi = self._createVectorLayer('zoneP0B_voronoi')
+        layer_zoneP0B_voronoi = QgsVectorLayer(self.gpkg_path + '|layername=zoneP0B_voronoi', 'zoneP0B_voronoi', 'ogr')
         # combine features into new features
         self._dissolve(layer_zoneP0B_voronoi, 'zoneP0B_voronoi_dissolve')
 
-        layer_zoneP0B_voronoi_dissolve = self._createVectorLayer('zoneP0B_voronoi_dissolve')
+        layer_zoneP0B_voronoi_dissolve = QgsVectorLayer(self.gpkg_path + '|layername=zoneP0B_voronoi_dissolve', 'zoneP0B_voronoi_dissolve', 'ogr')
         self._multiparttosingleparts(layer_zoneP0B_voronoi_dissolve, 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zoneP0B_singleparts\" (geom)')
 
-        layer_zoneP0B_singleparts = self._createVectorLayer('zoneP0B_singleparts')
+        layer_zoneP0B_singleparts = QgsVectorLayer(self.gpkg_path + '|layername=zoneP0B_singleparts', 'zoneP0B_singleparts', 'ogr')
         layer_zoneP0B_singleparts.selectByExpression('$area = maximum($area, "zone_id")')
         self._saveIntoGpkg(layer_zoneP0B_singleparts,'zoneP0B_max')
 
-        layer_zoneP0B_max = self._createVectorLayer('zoneP0B_max')
+        layer_zoneP0B_max = QgsVectorLayer(self.gpkg_path + '|layername=zoneP0B_max', 'zoneP0B_max', 'ogr')
         processing.run("native:deleteholes", {
             'INPUT': layer_zoneP0B_max, 'MIN_AREA': 500,
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zoneP0B_without_holes\" (geom)'
@@ -90,14 +91,14 @@ class GtfsZones:
 
             self._saveIntoGpkg(_layer_stops, 'stops_zone' + i)
 
-            layer_zoneI = self._createVectorLayer('stops_zone' + i)
+            layer_zoneI = QgsVectorLayer(self.gpkg_path + '|layername=stops_zone' + i, 'stops_zone' + i, 'ogr')
 
             # select voronoi polygons intersect with stops
             self._selectbylocation(layer_voronoi, layer_zoneI)
 
             self._saveIntoGpkg(layer_voronoi, 'zone' + i + '_voronoi')
 
-            layer_zoneI_voronoi = self._createVectorLayer('zone' + i + '_voronoi')
+            layer_zoneI_voronoi = QgsVectorLayer(self.gpkg_path + '|layername=zone' + i + '_voronoi', 'zone' + i + '_voronoi', 'ogr')
 
             # combine features into new features
             self._dissolve(layer_zoneI_voronoi, 'zone' + i + '_voronoi_dissolve')
@@ -118,14 +119,6 @@ class GtfsZones:
         # self._deleteLayer('zoneP0B_voronoi_dissolve')
         # for i in zones:
         #     self._deleteLayer('zone' + i + '_voronoi_dissolve')
-
-    def _createVectorLayer(self, layer_name):
-        '''
-        creates vector layer
-        '''
-        path_to_layer = self.gpkg_path + '|layername=' + layer_name
-        layer = QgsVectorLayer(path_to_layer, layer_name, "ogr")
-        return layer
 
     def _deleteLayer(self, layer_name):
         '''
@@ -207,7 +200,7 @@ class GtfsZones:
         select border stops >>> Extract vertices >>> Concave Hull >>> Simplify Geometries >>> Smooth
         '''
 
-        layer_stops = self._createVectorLayer('stops')
+        layer_stops = QgsVectorLayer(self.gpkg_path + '|layername=stops', 'stops', 'ogr')
         layer_stops.selectByExpression(expression)
         self._saveIntoGpkg(layer_stops, 'stops_border_zone' + zone_id)
 
@@ -244,7 +237,7 @@ class GtfsZones:
         self._smoothgeometry('zone' + zone_id + '_concaveHull_simplified', 'zone' + zone_id + '_concaveHull_smoothed')
         self._smoothgeometry('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'border_zone' + zone_id +'_smooth')
 
-        layer = self._createVectorLayer('zone' + zone_id + '_concaveHull_smoothed')
+        layer = QgsVectorLayer(self.gpkg_path + '|layername=zone' + zone_id + '_concaveHull_smoothed', 'zone' + zone_id + '_concaveHull_smoothed', 'ogr')
 
         d = QgsDistanceArea()
         d.setEllipsoid('WGS84')
@@ -269,19 +262,19 @@ class GtfsZones:
         Count Points in Polygon
         '''
 
-        layer_border = self._createVectorLayer('stops_border_zone' + zone_id)
-        layer_voronoi = self._createVectorLayer('voronoi')
+        layer_border = QgsVectorLayer(self.gpkg_path + '|layername=stops_border_zone' + zone_id, 'stops_border_zone' + zone_id, 'ogr')
+        layer_voronoi = QgsVectorLayer(self.gpkg_path + '|layername=voronoi', 'voronoi', 'ogr')
         self._selectbylocation(layer_voronoi, layer_border)
 
         self._saveIntoGpkg(layer_voronoi, 'border_voronoi_zone' + zone_id)
-        layer_border_zone_voronoi = self._createVectorLayer('border_voronoi_zone' + zone_id)
+        layer_border_zone_voronoi = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_zone' + zone_id, 'border_voronoi_zone' + zone_id, 'ogr')
 
         self._dissolve(layer_border_zone_voronoi, 'border_voronoi_dissolve_zone' + zone_id)
 
-        layer_border_voronoi_dissolve_zone = self._createVectorLayer('border_voronoi_dissolve_zone' + zone_id)
+        layer_border_voronoi_dissolve_zone = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_zone' + zone_id, 'border_voronoi_dissolve_zone' + zone_id, 'ogr')
         self._multiparttosingleparts(layer_border_voronoi_dissolve_zone, 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"border_voronoi_dissolve_singleparts_zone' + zone_id + '\" (geom)')
 
-        layer_border_voronoi_dissolve_singleparts_zone = self._createVectorLayer('border_voronoi_dissolve_singleparts_zone' + zone_id)
+        layer_border_voronoi_dissolve_singleparts_zone = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_zone' + zone_id, 'border_voronoi_dissolve_singleparts_zone' + zone_id, 'ogr')
         processing.run("native:countpointsinpolygon", {
             'POLYGONS': layer_border_voronoi_dissolve_singleparts_zone,
             'POINTS': layer_border,
@@ -290,11 +283,11 @@ class GtfsZones:
         })
 
         numpoints = '5'
-        layer_border_voronoi_dissolve_singleparts_counted_zone = self._createVectorLayer('border_voronoi_dissolve_singleparts_counted_zone' + zone_id)
+        layer_border_voronoi_dissolve_singleparts_counted_zone = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_counted_zone' + zone_id, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id, 'ogr')
         layer_border_voronoi_dissolve_singleparts_counted_zone.selectByExpression('NUMPOINTS > ' + numpoints)
         self._saveIntoGpkg(layer_border_voronoi_dissolve_singleparts_counted_zone, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
 
-        layer = self._createVectorLayer('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
+        layer = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'ogr')
 
         layer.startEditing()
         zone_id_idx = layer.fields().lookupField('zone_id')
