@@ -306,11 +306,12 @@ class GtfsZones:
 
     def _colecting_zones(self, list_zones_smoothed, list_border_zones_smoothed):
         list_zones_diff = []
+        self._difference(self.gpkg_path + '|layername=zone1_concaveHull_smoothed', self.gpkg_path + '|layername=zoneP0B_concaveHull_smoothed', 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zoneP0B_smoothed_diff\" (geom)')
         for i in range(len(list_zones_smoothed) - 1):
             self._difference(list_zones_smoothed[i + 1], list_zones_smoothed[i],'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zone' + str(i) + '_smoothed_diff\" (geom)')
 
             list_zones_diff.append(self.gpkg_path + '|layername=zone' + str(i) + '_smoothed_diff')
-        list_zones_diff.append(list_zones_smoothed[0])
+        list_zones_diff.append(self.gpkg_path + '|layername=zoneP0B_smoothed_diff')
         list_zones_diff.append(self.gpkg_path + '|layername=zoneP0B_concaveHull_smoothed')
 
         self._mergevectorlayers(list_zones_diff, 'zones_smoothed')
