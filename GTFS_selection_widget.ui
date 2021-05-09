@@ -65,7 +65,7 @@
     </font>
    </property>
    <property name="text">
-    <string>(so far for PID_ZONES)</string>
+    <string>(so far for PID_GTFS)</string>
    </property>
   </widget>
   <widget class="QDialogButtonBox" name="buttonBox">
