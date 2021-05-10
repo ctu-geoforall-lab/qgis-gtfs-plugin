@@ -53,7 +53,7 @@ class GtfsZones:
         self._saveIntoGpkg(layer_stops,'layer_stops_selected')
 
         layer_stops_selected = QgsVectorLayer(self.gpkg_path + '|layername=layer_stops_selected', 'layer_stops_selected', 'ogr')
-        processing.run("native:deleteduplicategeometries", {
+        processing.run("qgis:deleteduplicategeometries", {
             'INPUT': layer_stops_selected,
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"stops_zoneP0B\" (geom)'
         })
@@ -77,7 +77,7 @@ class GtfsZones:
         self._saveIntoGpkg(layer_zoneP0B_singleparts,'zoneP0B_max')
 
         layer_zoneP0B_max = QgsVectorLayer(self.gpkg_path + '|layername=zoneP0B_max', 'zoneP0B_max', 'ogr')
-        processing.run("native:deleteholes", {
+        processing.run("qgis:deleteholes", {
             'INPUT': layer_zoneP0B_max, 'MIN_AREA': 500,
             'OUTPUT': 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zoneP0B_without_holes\" (geom)'
         })
@@ -114,7 +114,7 @@ class GtfsZones:
         deletes layer into GeoPackage
         '''
         try:
-            processing.run("native:spatialiteexecutesql", {
+            processing.run("qgis:spatialiteexecutesql", {
                 'DATABASE': self.gpkg_path + '|layername=' + layer_name,
                 'SQL': 'DROP TABLE ' + layer_name
             })
@@ -156,7 +156,7 @@ class GtfsZones:
         })
 
     def _multiparttosingleparts(self, input, output):
-        return processing.run("native:multiparttosingleparts", {
+        return processing.run("qgis:multiparttosingleparts", {
             'INPUT': input,
             'OUTPUT': output
         })
@@ -264,7 +264,7 @@ class GtfsZones:
         self._multiparttosingleparts(layer_border_voronoi_dissolve_zone, 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"border_voronoi_dissolve_singleparts_zone' + zone_id + '\" (geom)')
 
         layer_border_voronoi_dissolve_singleparts_zone = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_zone' + zone_id, 'border_voronoi_dissolve_singleparts_zone' + zone_id, 'ogr')
-        processing.run("native:countpointsinpolygon", {
+        processing.run("qgis:countpointsinpolygon", {
             'POLYGONS': layer_border_voronoi_dissolve_singleparts_zone,
             'POINTS': layer_border,
             'FIELD': 'NUMPOINTS',
