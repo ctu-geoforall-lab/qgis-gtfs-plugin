@@ -6,11 +6,13 @@
 name=GTFS Loader
 qgisMinimumVersion=3.10
 description=Plugin for loading GTFS files 
-version=1.0
+version=2.0
 author=CTU GeoForAll Lab
 email=martin.kouba97@gmail.com
 
 about=This plugin allows to load a GTFS ZIP file, that will be extracted into the GeoPackage with individual tables. For stops and shapes it creates vector layers. There is built-in function for creating colorful shapes layer, so far for Prague integrated transport (PID).
+
+      In version 2.0, there is a newly added the zone creating, but so far it is for PID_GTFS ZIP file. For zone creating it is necessary to have the zone_id field in stops.txt file. 
 
 tracker=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin/issues
 repository=https://github.com/ctu-geoforall-lab/qgis-gtfs-plugin
