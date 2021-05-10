@@ -1,6 +1,6 @@
 from qgis import processing
 from qgis.core import QgsVectorLayer, QgsProject, QgsVectorFileWriter, QgsCoordinateReferenceSystem, QgsLayerTreeLayer, \
-    QgsDistanceArea, QgsSymbol, QgsRendererCategory, QgsCategorizedSymbolRenderer
+    QgsDistanceArea, QgsSymbol, QgsRendererCategory, QgsCategorizedSymbolRenderer, QgsDataProvider
 from PyQt5.QtGui import QColor
 
 
@@ -28,9 +28,11 @@ class GtfsZones:
 
         self._colecting_zones(list_zones_smoothed, list_border_zones_smoothed)
 
-        smooth_layer = QgsProject.instance().addMapLayer(QgsVectorLayer(self.gpkg_path + '|layername=zones_borders_smoothed_collected',
-                                                                        'zones_borders_smoothed_collected', 'ogr'), False)
+        smooth_layer = QgsProject.instance().addMapLayer(QgsVectorLayer(self.gpkg_path + '|layername=zones',
+                                                                        'zones', 'ogr'), False)
         self._set_zone_colors(smooth_layer)
+
+        self._deleting_layers()
 
         root = QgsProject.instance().layerTreeRoot()
         group_gtfs = root.findGroup('zones')
@@ -107,28 +109,14 @@ class GtfsZones:
             list_zones.append(self.gpkg_path + '|layername=zone' + i + '_voronoi_dissolve')
         list_zones.append(self.gpkg_path + '|layername=zoneP0B_without_holes')
 
-        # self._deleteLayer('voronoi')
-        # self._deleteLayer('layer_stops_selected')
-        # for i in zones:
-                # self._deleteLayer('stops_zone' + i)
-                # self._deleteLayer('zone' + i + '_voronoi')
-        # self._deleteLayer('stops_zoneP0B')
-        self._deleteLayer('zoneP0B_voronoi')
-        self._deleteLayer('zoneP0B_singleparts')
-        self._deleteLayer('zoneP0B_max')
-
-        # self._deleteLayer('zoneP0B_voronoi_dissolve')
-        # for i in zones:
-        #     self._deleteLayer('zone' + i + '_voronoi_dissolve')
-
     def _deleteLayer(self, layer_name):
         '''
         deletes layer into GeoPackage
         '''
         try:
             processing.run("native:spatialiteexecutesql", {
-                'DATABASE': '{0}|layername={1}'.format(self.gpkg_path, layer_name),
-                'SQL': 'DROP TABLE {0}'.format(layer_name)
+                'DATABASE': self.gpkg_path + '|layername=' + layer_name,
+                'SQL': 'DROP TABLE ' + layer_name
             })
         except IndexError:
             layer_name = None
@@ -205,7 +193,7 @@ class GtfsZones:
         layer_stops.selectByExpression(expression)
         self._saveIntoGpkg(layer_stops, 'stops_border_zone' + zone_id)
 
-        numpoints = self._border_zones(zone_id)
+        self._border_zones(zone_id)
 
         # extract vertices (polygon to nodes)
         processing.run('qgis:extractvertices', {
@@ -236,7 +224,7 @@ class GtfsZones:
         })
 
         self._smoothgeometry('zone' + zone_id + '_concaveHull_simplified', 'zone' + zone_id + '_concaveHull_smoothed')
-        self._smoothgeometry('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'border_zone' + zone_id +'_smooth')
+        self._smoothgeometry('border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanX', 'border_zone' + zone_id +'_smooth')
 
         layer = QgsVectorLayer(self.gpkg_path + '|layername=zone' + zone_id + '_concaveHull_smoothed', 'zone' + zone_id + '_concaveHull_smoothed', 'ogr')
 
@@ -286,9 +274,9 @@ class GtfsZones:
         numpoints = '5'
         layer_border_voronoi_dissolve_singleparts_counted_zone = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_counted_zone' + zone_id, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id, 'ogr')
         layer_border_voronoi_dissolve_singleparts_counted_zone.selectByExpression('NUMPOINTS > ' + numpoints)
-        self._saveIntoGpkg(layer_border_voronoi_dissolve_singleparts_counted_zone, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
+        self._saveIntoGpkg(layer_border_voronoi_dissolve_singleparts_counted_zone, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanX')
 
-        layer = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints, 'ogr')
+        layer = QgsVectorLayer(self.gpkg_path + '|layername=border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanX', 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanX', 'ogr')
 
         layer.startEditing()
         zone_id_idx = layer.fields().lookupField('zone_id')
@@ -300,9 +288,7 @@ class GtfsZones:
         layer.commitChanges()
         layer.updateExtents()
 
-        self._saveIntoGpkg(layer, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThan' + numpoints)
-
-        return numpoints
+        self._saveIntoGpkg(layer, 'border_voronoi_dissolve_singleparts_counted_zone' + zone_id + '_moreThanX')
 
     def _colecting_zones(self, list_zones_smoothed, list_border_zones_smoothed):
         list_zones_diff = []
@@ -322,7 +308,7 @@ class GtfsZones:
 
         self._difference(self.gpkg_path + '|layername=zones_smoothed_collected', self.gpkg_path + '|layername=border_zones_smoothed_collected', 'ogr:dbname=\'' + self.gpkg_path + '\' table=\"zones_smoothed_collected_diff\" (geom)')
 
-        self._mergevectorlayers([self.gpkg_path + '|layername=zones_smoothed_collected_diff', self.gpkg_path + '|layername=border_zones_smoothed_collected'], 'zones_borders_smoothed_collected')
+        self._mergevectorlayers([self.gpkg_path + '|layername=zones_smoothed_collected_diff', self.gpkg_path + '|layername=border_zones_smoothed_collected'], 'zones')
 
 
     def _set_zone_colors(self, zones_layer):
@@ -364,3 +350,20 @@ class GtfsZones:
             myRenderer = QgsCategorizedSymbolRenderer(target_field, myCategoryList)
             zones_layer.setRenderer(myRenderer)
         zones_layer.triggerRepaint()
+
+    def _deleting_layers(self):
+        layer = QgsVectorLayer(self.gpkg_path, "gpkg", "ogr")
+        subLayers = layer.dataProvider().subLayers()
+        gpkg_layers = []
+
+        layers = ['agency', 'attributions', 'calendar', 'calendar_dates', 'fare_attributes', 'fare_rules', 'feed_info',
+                  'frequencies', 'levels', 'lines', 'pathways', 'route_sub_agencies', 'routes', 'shapes_line',
+                  'stop_times', 'stops', 'transfers', 'translations', 'trips', 'zones']
+
+        for subLayer in subLayers:
+            name = subLayer.split(QgsDataProvider.SUBLAYER_SEPARATOR)[1]
+            gpkg_layers.append(name)
+
+        for gpkg_layer in gpkg_layers:
+            if gpkg_layer not in layers:
+                self._deleteLayer(gpkg_layer)
